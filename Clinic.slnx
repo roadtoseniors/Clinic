@@ -1,0 +1,11 @@
+﻿<Solution>
+  <Project Path="Clinic.Android/Clinic.Android.csproj">
+    <Deploy />
+  </Project>
+  <Project Path="Clinic.Browser/Clinic.Browser.csproj" />
+  <Project Path="Clinic.Desktop/Clinic.Desktop.csproj" />
+  <Project Path="Clinic.iOS/Clinic.iOS.csproj">
+    <Deploy />
+  </Project>
+  <Project Path="Clinic/Clinic.csproj" />
+</Solution>
