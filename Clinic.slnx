@@ -1,4 +1,5 @@
 ﻿<Solution>
+  <Project Path="Clinic.API/Clinic.API.csproj" />
   <Project Path="Clinic.Browser/Clinic.Browser.csproj" />
   <Project Path="Clinic.Desktop/Clinic.Desktop.csproj" />
   <Project Path="Clinic/Clinic.csproj" />
