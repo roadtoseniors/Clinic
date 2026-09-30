@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Clinic.API;
 using Clinic.Context;
 using Clinic.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -11,6 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<MyDbContext>();
 builder.Services.AddCors();
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
@@ -56,33 +60,58 @@ app.MapPost("/auth/login", (AuthData data, MyDbContext cnt) =>
     }
 });
 
-app.MapGet("/api/roles", async (MyDbContext cnt) =>
+var api = app.MapGroup("/api");
+api.RequireAuthorization();
+
+api.MapGet("/roles", async (MyDbContext cnt, CancellationToken ct) =>
 {
-    try
-    {
-        var roles = await cnt.Roles.ToListAsync();
-        return Results.Ok(roles);
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine(ex.Message);
-        return Results.Problem("Ошибка при получении данных");
-    }
+    TypedResults.Ok(
+        await cnt.Roles.AsNoTracking().OrderBy(r => r.Id).Select(r => new RoleDto(r.Id, r.Name)).ToListAsync(ct));
 });
 
-app.MapGet("/api/users", (MyDbContext cnt) =>
+api.MapGet("/appointments", async (MyDbContext cnt, CancellationToken ct) =>
 {
-
+    TypedResults.Ok(
+        await cnt.Appointments.AsNoTracking().OrderByDescending(a => a.Schedule.WorkDate).ThenBy(a => a.Schedule.StartTime)
+            .Select(a=> new AppointmentDto(a.Id, a.ScheduleId, a.Schedule.WorkDate, a.StartTime, a.PatientId, a.Status, a.Source, a.CreatedAt))
+            .ToListAsync(ct));
 });
 
-public class AuthOption
+api.MapGet("/audits", async (MyDbContext cnt, CancellationToken ct) =>
 {
-    public const string ISSUER = "Masha";
-    public const string AUDIENCE = "Vadim";
-    private const string KEY = "Pevt_KiloPevt_MegaPevt_GigoPevt_TeraPevt_PetaPevt_1!_4!_8!_8!";
+    TypedResults.Ok(
+        await cnt.Audits.AsNoTracking().OrderByDescending(ad => ad.Id).Take(100).Select(ad => new AuditDto(ad.Id, ad.AccountId, ad.PatientId, ad.ActedAt, ad.Action, ad.TableName, ad.RecordId))
+        .ToListAsync(ct));
+});
+
+api.MapGet("/diagnoses", async (MyDbContext cnt, CancellationToken ct) =>
+{
+    TypedResults.Ok(
+        await cnt.Diagnoses.AsNoTracking().OrderBy(di => di.Code).Select(di => new DiagnosisDto(di.Code, di.Name)).ToListAsync(ct));
+});
+
+api.MapGet("/drugs", async (MyDbContext cnt, CancellationToken ct) =>
+{
+    TypedResults.Ok(
+        await cnt.Drugs.AsNoTracking().OrderBy(dr => dr.Id).Select(dr => new DrugDto(dr.Id, dr.Name)).ToListAsync(ct));
+});
+
+api.MapGet("/employees", async (MyDbContext cnt, CancellationToken ct) =>
+{
+    TypedResults.Ok(
+        await cnt.Employees.AsNoTracking().OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
+            .Select(e => new EmployeeDto(e.Id, e.FirstName, e.LastName, e.MiddleName, e.PostId, e.Post.Name, e.SpecialtyId,
+                e.Specialty != null ? e.Specialty.Name : null, e.Phone, e.IsActive)).ToListAsync(ct));
+});
+
+api.MapGet("/invoices", async (MyDbContext cnt, CancellationToken ct) =>
+{
+    TypedResults.Ok(
+        await cnt.Invoices.AsNoTracking().OrderByDescending(i => i.CreatedAt).Select(i => new InvoiceDto(i.Id, i.PatientId, i.CreatedAt, i.Status, i.MethodId, 
+            i.PaidAt, i.VisitServices.Sum((vs => vs.Price * vs.Quantity)))).ToListAsync(ct));
+});
+
+api.MapGet("/patient", async (MyDbContext cnt, CancellationToken ct) =>
+{
     
-    public static SymmetricSecurityKey GetSymmetricSecurityKey() =>
-        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(KEY));
-}
-
-public record AuthData(string Login, string Password);
+});
