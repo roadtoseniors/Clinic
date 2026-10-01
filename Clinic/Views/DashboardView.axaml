@@ -1,0 +1,127 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Clinic.ViewModels"
+             xmlns:demo="using:Clinic.Demo"
+             x:Class="Clinic.Views.DashboardView"
+             x:DataType="vm:MainViewModel"
+             Background="{DynamicResource PageBackground}">
+  <Grid ColumnDefinitions="218,*" MinWidth="780">
+    <Border Grid.Column="0" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,*,Auto" Margin="16,22">
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,0,0,28">
+          <Border Width="36" Height="36" Background="{DynamicResource ButtonBackground}" CornerRadius="7">
+            <TextBlock Text="✚" Foreground="White" FontSize="25" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="Медицинская" Foreground="{DynamicResource AccentText}" FontSize="12" FontWeight="Bold"/>
+            <TextBlock Text="информационная система" Foreground="{DynamicResource AccentText}" FontSize="10"/>
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Spacing="8">
+          <TextBlock Text="РАЗДЕЛЫ" Foreground="{DynamicResource FaintText}" FontSize="10" FontWeight="Bold" Margin="12,0,0,8"/>
+          <Border Background="{DynamicResource SelectedBackground}" CornerRadius="7" Padding="12,10">
+            <TextBlock Text="⌂   Главная" Foreground="{DynamicResource AccentText}" FontWeight="Bold" FontSize="13"/>
+          </Border>
+          <ItemsControl ItemsSource="{Binding Navigation}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <TextBlock Text="{Binding}" Foreground="{DynamicResource MutedText}" FontSize="12" Margin="12,9,0,9"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+        <Border Grid.Row="2" Background="{DynamicResource CardBackground}" CornerRadius="10" Padding="10" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
+          <StackPanel Spacing="5">
+            <TextBlock Text="{Binding DisplayName}" Foreground="{DynamicResource PrimaryText}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Role}" Foreground="{DynamicResource MutedText}" FontSize="11"/>
+            <Button Content="Выйти" Command="{Binding SignOutCommand}" FontSize="11" Margin="0,7,0,0"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="32,26,32,36" Spacing="24">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="5">
+            <TextBlock Text="Главная" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource PrimaryText}"/>
+            <TextBlock Text="{Binding Today}" FontSize="12" Foreground="{DynamicResource MutedText}"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Top">
+            <Button Classes="themeToggle" Content="{Binding ThemeToggleLabel}" Command="{Binding ToggleThemeCommand}"/>
+            <Border Background="{DynamicResource InfoBackground}" CornerRadius="12" Padding="12,8">
+            <TextBlock Text="{Binding SourceLabel}" Foreground="{DynamicResource InfoText}" FontWeight="Bold" FontSize="10"/>
+            </Border>
+          </StackPanel>
+        </Grid>
+        <TextBlock Text="{Binding ThemeError}" IsVisible="{Binding HasThemeError}" Foreground="{DynamicResource ErrorText}" FontSize="12" TextWrapping="Wrap"/>
+
+        <Border Background="{DynamicResource BrandBackground}" CornerRadius="14" Padding="24,23">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="8">
+              <TextBlock Text="{Binding DisplayName, StringFormat='Добро пожаловать, {0}!'}" Foreground="White" FontWeight="Bold" FontSize="22" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource BrandMuted}" FontSize="13" TextWrapping="Wrap"/>
+            </StackPanel>
+            <Border Grid.Column="1" Width="48" Height="48" Background="{DynamicResource AvatarBackground}" CornerRadius="24" Margin="18,0,0,0">
+              <TextBlock Text="{Binding Initials}" Foreground="White" FontWeight="Bold" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+          </Grid>
+        </Border>
+
+        <ItemsControl ItemsSource="{Binding Metrics}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="demo:DashboardMetric">
+              <Border Width="176" Margin="0,0,12,12" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="10" Padding="15">
+                <StackPanel Spacing="6">
+                  <Border Width="30" Height="30" Background="{Binding Accent}" CornerRadius="8" HorizontalAlignment="Left"/>
+                  <TextBlock Text="{Binding Value}" Foreground="{DynamicResource PrimaryText}" FontSize="25" FontWeight="Bold"/>
+                  <TextBlock Text="{Binding Label}" Foreground="{DynamicResource SecondaryText}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                  <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource FaintText}" FontSize="10" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Grid ColumnDefinitions="2*,*" ColumnSpacing="18">
+          <Border Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="12" Padding="20">
+            <StackPanel Spacing="16">
+              <TextBlock Text="{Binding SectionTitle}" Foreground="{DynamicResource PrimaryText}" FontWeight="Bold" FontSize="17"/>
+              <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="demo:DashboardItem">
+                    <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,11">
+                      <Grid ColumnDefinitions="58,*,Auto" ColumnSpacing="10">
+                        <TextBlock Text="{Binding Time}" Foreground="{DynamicResource MutedText}" FontSize="11" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Spacing="3">
+                          <TextBlock Text="{Binding Title}" Foreground="{DynamicResource PrimaryText}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/>
+                          <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource FaintText}" FontSize="10" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <Border Grid.Column="2" Background="{DynamicResource SuccessBackground}" CornerRadius="6" Padding="6,3" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Badge}" Foreground="{DynamicResource SuccessText}" FontSize="10"/>
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="1" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="12" Padding="20">
+            <StackPanel Spacing="12">
+              <Border Width="34" Height="34" Background="{DynamicResource WarningBackground}" CornerRadius="9" HorizontalAlignment="Left">
+                <TextBlock Text="i" Foreground="{DynamicResource WarningText}" FontWeight="Bold" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="Информация" Foreground="{DynamicResource PrimaryText}" FontWeight="Bold" FontSize="15"/>
+              <TextBlock Text="{Binding Note}" Foreground="{DynamicResource MutedText}" FontSize="12" TextWrapping="Wrap" LineHeight="19"/>
+              <TextBlock Text="Это тестовые данные. Изменения не сохраняются в базе данных." Foreground="{DynamicResource FaintText}" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

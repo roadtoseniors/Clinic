@@ -1,10 +1,94 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Clinic.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
-  
-    <Application.Styles>
-        <FluentTheme />
-    </Application.Styles>
+             RequestedThemeVariant="Light">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="PageBackground">#F3F8FC</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarBackground">#ECF6FB</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBackground">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBorder">#DFE9F1</SolidColorBrush>
+          <SolidColorBrush x:Key="PrimaryText">#172C43</SolidColorBrush>
+          <SolidColorBrush x:Key="SecondaryText">#27415A</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedText">#71869A</SolidColorBrush>
+          <SolidColorBrush x:Key="FaintText">#8A9EAD</SolidColorBrush>
+          <SolidColorBrush x:Key="InputBackground">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="InputBorder">#D9E5EF</SolidColorBrush>
+          <SolidColorBrush x:Key="InputHoverBorder">#9FC5DD</SolidColorBrush>
+          <SolidColorBrush x:Key="InputFocusBorder">#086394</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandBackground">#0D4D76</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandInset">#1B6187</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandMuted">#D3EAF6</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandLogoBackground">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandLogoText">#0875A7</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentText">#075482</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectedBackground">#CDE9F7</SolidColorBrush>
+          <SolidColorBrush x:Key="InfoBackground">#E4F2FF</SolidColorBrush>
+          <SolidColorBrush x:Key="InfoText">#086394</SolidColorBrush>
+          <SolidColorBrush x:Key="SuccessBackground">#E4F4EC</SolidColorBrush>
+          <SolidColorBrush x:Key="SuccessText">#227A58</SolidColorBrush>
+          <SolidColorBrush x:Key="WarningBackground">#FFF2DF</SolidColorBrush>
+          <SolidColorBrush x:Key="WarningText">#C08016</SolidColorBrush>
+          <SolidColorBrush x:Key="DividerBrush">#E9EEF3</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBackground">#086394</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonHoverBackground">#07537D</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonPressedBackground">#064466</SolidColorBrush>
+          <SolidColorBrush x:Key="ErrorText">#B64C43</SolidColorBrush>
+          <SolidColorBrush x:Key="AvatarBackground">#28729B</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="PageBackground">#0E1926</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarBackground">#112538</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBackground">#17283A</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBorder">#2C465B</SolidColorBrush>
+          <SolidColorBrush x:Key="PrimaryText">#F0F7FC</SolidColorBrush>
+          <SolidColorBrush x:Key="SecondaryText">#D1E3EF</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedText">#A9BED0</SolidColorBrush>
+          <SolidColorBrush x:Key="FaintText">#91AABF</SolidColorBrush>
+          <SolidColorBrush x:Key="InputBackground">#20374B</SolidColorBrush>
+          <SolidColorBrush x:Key="InputBorder">#3A5B73</SolidColorBrush>
+          <SolidColorBrush x:Key="InputHoverBorder">#6FA8C8</SolidColorBrush>
+          <SolidColorBrush x:Key="InputFocusBorder">#72C9F4</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandBackground">#0B3550</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandInset">#174E6B</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandMuted">#C7E2F1</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandLogoBackground">#EAF6FC</SolidColorBrush>
+          <SolidColorBrush x:Key="BrandLogoText">#0875A7</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentText">#8BD2F5</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectedBackground">#1D4B68</SolidColorBrush>
+          <SolidColorBrush x:Key="InfoBackground">#214B68</SolidColorBrush>
+          <SolidColorBrush x:Key="InfoText">#B9E6FF</SolidColorBrush>
+          <SolidColorBrush x:Key="SuccessBackground">#17493B</SolidColorBrush>
+          <SolidColorBrush x:Key="SuccessText">#ACF0CF</SolidColorBrush>
+          <SolidColorBrush x:Key="WarningBackground">#4D3B22</SolidColorBrush>
+          <SolidColorBrush x:Key="WarningText">#FFD794</SolidColorBrush>
+          <SolidColorBrush x:Key="DividerBrush">#2B4356</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBackground">#147DAF</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonHoverBackground">#2494C7</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonPressedBackground">#0C6592</SolidColorBrush>
+          <SolidColorBrush x:Key="ErrorText">#FFACA5</SolidColorBrush>
+          <SolidColorBrush x:Key="AvatarBackground">#276C92</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Button.themeToggle">
+      <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="12,7"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style Selector="Button.themeToggle:pointerover">
+      <Setter Property="Background" Value="{DynamicResource InfoBackground}"/>
+      <Setter Property="Foreground" Value="{DynamicResource InfoText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource InputHoverBorder}"/>
+    </Style>
+  </Application.Styles>
 </Application>

@@ -1,0 +1,3 @@
+{
+  "ConnectionString": "Host=127.0.0.1;Port=5432;Database=clinic_course_test;Username=clinic_preview;Password=YOUR_LOCAL_PASSWORD;Timeout=3"
+}
