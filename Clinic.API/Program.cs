@@ -36,7 +36,6 @@ app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader())
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ======================= ВХОД =======================
 app.MapPost("/auth/login", async (AuthData data, MyDbContext db, CancellationToken ct) =>
 {
     if (string.IsNullOrWhiteSpace(data.Login) || string.IsNullOrWhiteSpace(data.Password))
@@ -56,8 +55,10 @@ app.MapPost("/auth/login", async (AuthData data, MyDbContext db, CancellationTok
         return Results.Unauthorized();
 
     // права роли берём из таблицы role_permission (колонка обязана называться Value)
-    var permissions = await db.Database
-        .SqlQuery<string>($"SELECT permission_code AS \"Value\" FROM role_permission WHERE role_id = {account.RoleId}")
+    var permissions = await db.Roles
+        .Where(r => r.Id == account.RoleId)
+        .SelectMany(r => r.PermissionCodes)
+        .Select(p => p.Code)
         .ToListAsync(ct);
 
     var claims = new List<Claim>
@@ -93,11 +94,11 @@ app.MapPost("/auth/login", async (AuthData data, MyDbContext db, CancellationTok
     return Results.Ok(new LoginResponse(dto, token, permissions));
 });
 
-// ======================= API (только с токеном) =======================
+//только с токеном 
 var api = app.MapGroup("/api");
 api.RequireAuthorization();
 
-// ---------- Общие функции ----------
+//Общие функции 
 api.MapPut("/me/theme", async (ThemeDto dto, ClaimsPrincipal user, MyDbContext db, CancellationToken ct) =>
 {
     if (dto.Theme is not ("light" or "dark"))
@@ -113,7 +114,7 @@ api.MapPut("/me/theme", async (ThemeDto dto, ClaimsPrincipal user, MyDbContext d
     return Results.NoContent();
 });
 
-// ---------- Справочники (доступны любому вошедшему) ----------
+//Справочники доступны любому вошедшему
 api.MapGet("/paymethods", async (MyDbContext db, CancellationToken ct) =>
     TypedResults.Ok(await db.PayMethods.AsNoTracking().OrderBy(m => m.Id)
         .Select(m => new PayMethodDto(m.Id, m.Name, m.IsInsurance)).ToListAsync(ct)));
@@ -161,11 +162,7 @@ api.MapGet("/documenttypes", async (MyDbContext db, CancellationToken ct) =>
 api.MapGet("/employees", async (MyDbContext db, CancellationToken ct) =>
     TypedResults.Ok(await db.Employees.AsNoTracking()
         .OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
-        .Select(e => new EmployeeDto(
-            e.Id, e.LastName, e.FirstName, e.MiddleName,
-            e.PostId, e.Post.Name,
-            e.SpecialtyId, e.Specialty != null ? e.Specialty.Name : null,
-            e.Phone, e.IsActive))
+        .Select(e => new EmployeeDto(e.Id, e.LastName, e.FirstName, e.MiddleName, e.PostId, e.Post.Name, e.SpecialtyId, e.Specialty != null ? e.Specialty.Name : null, e.Phone, e.IsActive))
         .ToListAsync(ct)));
 
 api.MapGet("/schedules", async (MyDbContext db, CancellationToken ct) =>
@@ -174,7 +171,7 @@ api.MapGet("/schedules", async (MyDbContext db, CancellationToken ct) =>
         .Select(s => new ScheduleDto(s.Id, s.EmployeeId, s.RoomId, s.WorkDate, s.StartTime, s.EndTime, s.SlotMinutes))
         .ToListAsync(ct)));
 
-// ---------- Данные с ограничением по правам ----------
+//Данные с ограничением по правам 
 api.MapGet("/roles", async (MyDbContext db, CancellationToken ct) =>
     TypedResults.Ok(await db.Roles.AsNoTracking().OrderBy(r => r.Id)
         .Select(r => new RoleDto(r.Id, r.Code, r.Name)).ToListAsync(ct)))
@@ -250,7 +247,7 @@ api.MapGet("/audits", async (MyDbContext db, CancellationToken ct) =>
         .ToListAsync(ct)))
     .RequirePermission(Perm.AuditView);
 
-// ---------- Кабинет пациента: только собственные данные (id берётся из токена) ----------
+//Кабинет пациента: только собственные данные (id берётся из токена)
 api.MapGet("/my/appointments", async (ClaimsPrincipal user, MyDbContext db, CancellationToken ct) =>
 {
     if (user.GetPatientId() is not int patientId)
@@ -277,7 +274,7 @@ api.MapGet("/my/notifications", async (ClaimsPrincipal user, MyDbContext db, Can
 
     var list = await db.Notifications.AsNoTracking()
         .Where(n => n.PatientId == patientId)
-        .OrderBy(n => n.IsRead).ThenByDescending(n => n.CreatedAt)   // непрочитанные первыми
+        .OrderBy(n => n.IsRead).ThenByDescending(n => n.CreatedAt)
         .Take(50)
         .Select(n => new NotificationDto(n.Id, n.CreatedAt, n.Message, n.IsRead))
         .ToListAsync(ct);
@@ -298,5 +295,6 @@ api.MapPost("/my/notifications/{id:int}/read", async (int id, ClaimsPrincipal us
     return updated == 0 ? Results.NotFound() : Results.NoContent();
 })
 .RequirePermission(Perm.OwnView);
+
 
 app.Run();
