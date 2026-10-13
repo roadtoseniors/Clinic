@@ -1,7 +1,6 @@
-﻿using System.Security.Claims;
-
 namespace Clinic.API;
 
+// Коды прав из таблицы permission. Константы вместо строк: опечатка не скомпилируется.
 public static class Perm
 {
     public const string ClaimType = "permission";
@@ -31,9 +30,19 @@ public static class Perm
 
 public static class AuthExtensions
 {
-    // Эндпоинт доступен, если у пользователя есть ЛЮБОЕ из перечисленных прав
-    public static RouteHandlerBuilder RequirePermission(this RouteHandlerBuilder builder, params string[] permissions)
+    // Доступ, если у пользователя есть ЛЮБОЕ из перечисленных прав.
+    // Работает и для одного эндпоинта, и для целой группы (MapGroup).
+    public static TBuilder RequirePermission<TBuilder>(this TBuilder builder, params string[] permissions)
+        where TBuilder : IEndpointConventionBuilder
         => builder.RequireAuthorization(p => p.RequireClaim(Perm.ClaimType, permissions));
+
+    // Только сотрудники (в токене есть employeeId). Пациенты сюда не попадут.
+    public static TBuilder RequireStaff<TBuilder>(this TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder
+        => builder.RequireAuthorization(p => p.RequireClaim("employeeId"));
+
+    public static bool HasPermission(this ClaimsPrincipal user, string permission) =>
+        user.HasClaim(Perm.ClaimType, permission);
 
     public static int? GetAccountId(this ClaimsPrincipal user) =>
         int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
