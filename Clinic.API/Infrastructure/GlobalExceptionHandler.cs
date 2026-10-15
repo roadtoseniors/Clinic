@@ -42,6 +42,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
             {
                 PostgresErrorCodes.UniqueViolation => (409, "Такая запись уже существует"),
                 PostgresErrorCodes.ForeignKeyViolation => (409, "Связанная запись не найдена или используется другими данными"),
+                PostgresErrorCodes.StringDataRightTruncation => (400, "Одно из полей слишком длинное. Сократите значение"),
                 PostgresErrorCodes.NotNullViolation => (400, "Не заполнено обязательное поле"),
                 // У триггеров clinic.sql имя ограничения пустое, а текст написан для пользователя
                 PostgresErrorCodes.CheckViolation when pg.ConstraintName is null => (400, pg.MessageText),

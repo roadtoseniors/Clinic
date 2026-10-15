@@ -19,6 +19,7 @@ public partial class DashboardView : UserControl
         {
             if (e.Key != Key.Escape || DataContext is not WorkspaceViewModel model) return;
             if (model.IsActionConfirmOpen) model.CancelActionCommand.Execute(null);
+            else if(model.IsAttachmentPickerOpen)model.CancelAttachmentChoiceCommand.Execute(null);
             else if (model.IsRestoreConfirmOpen) model.CancelRestoreCommand.Execute(null);
             else if (model.IsEditorOpen) await model.CloseEditorCommand.ExecuteAsync(null);
             else model.CloseDetailsCommand.Execute(null);
@@ -33,16 +34,21 @@ public partial class DashboardView : UserControl
         {
             if(kind=="attach")
             {
-                var files=await top.StorageProvider.OpenFilePickerAsync(new(){Title="Файл результата",AllowMultiple=false,FileTypeFilter=[new("Результат исследования"){Patterns=["*.pdf","*.jpg","*.jpeg","*.png"]}]});
+                var files=await top.StorageProvider.OpenFilePickerAsync(new(){Title="Файл результата",AllowMultiple=true,FileTypeFilter=[new("Результат исследования"){Patterns=["*.pdf","*.jpg","*.jpeg","*.png"]}]});
                 if(files.Count==0)return;
-                await using var stream=await files[0].OpenReadAsync();
+                if(files.Count>10)throw new InvalidOperationException("Выберите не более 10 файлов.");
+                foreach(var selectedFile in files)
+                {
+                await using var stream=await selectedFile.OpenReadAsync();
                 using var memory=new MemoryStream();var buffer=new byte[8192];int count;
                 while((count=await stream.ReadAsync(buffer))>0)
                 {
                     if(memory.Length+count>10*1024*1024)throw new InvalidOperationException("Максимальный размер файла — 10 МБ.");
                     await memory.WriteAsync(buffer.AsMemory(0,count));
                 }
-                model.Attach(files[0].Name,memory.ToArray());return;
+                if(!model.Attach(selectedFile.Name,memory.ToArray()))return;
+                }
+                return;
             }
             if(kind=="restore")
             {
@@ -56,8 +62,19 @@ public partial class DashboardView : UserControl
             if(kind=="download")
             {
                 if(model.SelectedRow is null)return;
-                bytes=await model.Gateway.AttachmentAsync(model.Session,model.SelectedRow.Id)??throw new InvalidOperationException("Файл не найден.");
-                filename=Path.GetFileName(model.SelectedRow.Values.GetValueOrDefault("file_name","result.bin"));
+                if(model.Gateway is Clinic.Data.HttpClinicGateway api)
+                {
+                    var files=await api.AttachmentsAsync(model.Session,model.SelectedRow.Id);
+                    if(files.Count==0)throw new InvalidOperationException("Файл не найден.");
+                    var selected=files.Count==1&&!model.CanDeleteAttachment?files[0]:await model.PickAttachmentAsync(files);
+                    if(selected is null)return;
+                    model.IsBusy=true;bytes=await api.DownloadAttachmentAsync(model.Session,selected.Id);filename=Path.GetFileName(selected.Name);
+                }
+                else
+                {
+                    bytes=await model.Gateway.AttachmentAsync(model.Session,model.SelectedRow.Id)??throw new InvalidOperationException("Файл не найден.");
+                    filename=Path.GetFileName(model.SelectedRow.Values.GetValueOrDefault("file_name","result.bin"));
+                }
             }
             else if(kind=="backup")
             {

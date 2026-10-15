@@ -5,9 +5,10 @@ using Clinic.Workspace;
 
 if(args.Contains("--seed-api")){await ApiFixture.SeedAsync();return;}
 if(args.Contains("--api")){await ApiIntegration.RunAsync();return;}
+if(args.Contains("--functional")){await FunctionalTests.RunAsync();return;}
 if(args.Contains("--startup")){await LocalApiStartup.RunAsync();return;}
 if(args.Contains("--startup-child")){await LocalApiStartup.RunChildAsync(args);return;}
-int assertions=0;
+int assertions=LoginProtectionTests.Run()+await UiFlowTests.RunAsync();
 void Assert(bool condition,string message){if(!condition)throw new Exception(message);assertions++;}
 async Task Denied(Func<Task> work,string label){try{await work();}catch(InvalidOperationException){assertions++;return;}catch(Npgsql.PostgresException ex) when(ex.SqlState=="23505"){assertions++;return;}throw new Exception("Expected rejection: "+label);}
 IClinicGateway gateway=new DemoGateway();
@@ -130,7 +131,7 @@ if(!args.Contains("--database"))
     vm.Workspace.RestoreConfirmText="ВОССТАНОВИТЬ";vm.Workspace.ConfirmRestoreCommand.Execute(null);
     Assert(await confirmation&&!vm.Workspace.IsRestoreConfirmOpen,"Confirmed restore closes overlay");
     var cancelled=vm.Workspace.ConfirmRestoreAsync();vm.Workspace.CancelRestoreCommand.Execute(null);Assert(!await cancelled,"Restore can be cancelled");
-    await vm.SignOutCommand.ExecuteAsync(null);Assert(vm.IsSignedOut&&vm.Workspace is null,"Sign out clears workspace");
+    await TestUi.SignOutAsync(vm);Assert(vm.IsSignedOut&&vm.Workspace is null,"Sign out clears workspace");
     await vm.OpenRegistrationCommand.ExecuteAsync(null);
     vm.RegistrationFields.First(f=>f.Spec.Key=="login").Text="unsaved_registration";
     var registrationClose=vm.CloseRegistrationCommand.ExecuteAsync(null);

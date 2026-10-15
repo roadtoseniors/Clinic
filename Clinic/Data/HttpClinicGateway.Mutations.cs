@@ -14,11 +14,14 @@ public sealed partial class HttpClinicGateway
 {
     private int _editorId;
     private string _editorKind="";
+    private FieldSpec[] _permissionFields=[];
     public void PrepareEditor(string kind,int id){_editorKind=kind;_editorId=id;}
     public FieldSpec[] FieldsFor(string kind,int id=0)=>kind switch
     {
+        "role_permissions"=>_permissionFields,
+        "rendered" when id>0=>Catalog.Fields(kind).Where(f=>f.Key!="visit_id").ToArray(),
         "patient"=>Catalog.Fields("patient").Where(f=>new[]{"last_name","first_name","middle_name","birth_date","gender","oms_policy","snils","dms_policy","phone","address","primary_doctor_id"}.Contains(f.Key)).Concat([new("oms_company_id","Страховая ОМС",true,"companies"),new("dms_company_id","Страховая ДМС",Lookup:"companies"),new("district_id","Участок",Lookup:"districts")]).ToArray(),
-        "prescription"=>Catalog.Fields(kind).Where(f=>f.Key!="valid_until").ToArray(),
+        "prescription"=>Catalog.Fields(kind).Where(f=>f.Key!="valid_until" && (id==0||f.Key!="visit_id")).ToArray(),
         "referral"=>Catalog.Fields(kind).Where(f=>f.Key!="consultation_doctor_id").ToArray(),
         "payment"=>[new("method_id","Способ оплаты (полная сумма счёта)",true,"methods"),new("policy_id","Полис, только при оплате по ДМС",Lookup:"policies")],
         "document"=>[new("patient_id","Пациент",true,"patients"),new("type_id","Вид документа",true,"document_types"),new("visit_id","Приём (обязательно для справки врача)",Lookup:"visits"),new("content","Текст документа",true,Multiline:true)],
@@ -36,6 +39,12 @@ public sealed partial class HttpClinicGateway
         if(s.Role=="Администратор")
         {
             result["roles"]=(await Many("api/roles")).Where(v=>new[]{"patient","registrar","doctor","admin","administrator"}.Contains(S(v,"code"))).Select(v=>new Choice(S(v,"id"),S(v,"name"))).ToList();
+            if(_editorKind=="role_permissions")
+            {
+                var role=(await Many("api/roles")).First(r=>I(r,"id")==_editorId);
+                var enabled=A(P(role,"permissions")).Select(p=>p.ToString()).ToHashSet();
+                _permissionFields=(await Many("api/permissions")).Select(p=>new FieldSpec("perm:"+S(p,"code"),Catalog.PermissionName(S(p,"code")),true,"boolean",Default:enabled.Contains(S(p,"code"))?"true":"false")).ToArray();
+            }
             result["employees"]=(await Many("api/employees")).Select(v=>new Choice(S(v,"id"),FullName(v))).ToList();
         }
         if(s.Role!="Администратор"||_editorKind=="account")result["patients"]=(await Patients(s)).Where(p=>B(p,"isActive")).Select(p=>new Choice(S(p,"id"),FullName(p))).ToList();
@@ -64,50 +73,39 @@ public sealed partial class HttpClinicGateway
         foreach(var f in FieldsFor(m.Kind,id))if(f.Required&&V(v,f.Key)=="")throw new InvalidOperationException("Заполните «"+f.Label+"».");
         switch(m.Kind)
         {
+            case "role_permissions":
+                result=await Request("PUT","api/roles/"+id+"/permissions",new{codes=v.Where(p=>p.Key.StartsWith("perm:")&&p.Value=="true").Select(p=>p.Key[5..]).ToArray()});return id;
             case "password":
                 if(v.GetValueOrDefault("new_password","")!=v.GetValueOrDefault("confirmation",""))throw new InvalidOperationException("Пароли не совпадают.");
                 await ChangePasswordAsync(v["old_password"],v["new_password"]);return s.AccountId;
             case "patient":
-                if(id==0)
-                {
-                    result=await Request("POST","api/patients",new{lastName=V(v,"last_name"),firstName=V(v,"first_name"),middleName=Nullable(v,"middle_name"),birthDate=V(v,"birth_date"),gender=V(v,"gender"),snils=Nullable(v,"snils"),address=Nullable(v,"address"),phone=Nullable(v,"phone"),omsNumber=Nullable(v,"oms_policy"),omsCompanyId=Optional(v,"oms_company_id")});id=I(result,"id");
-                }
-                else await Request("PUT","api/patients/"+id,Person(v));
-                var profile=await Request("GET","api/patients/"+id);
-                foreach(var (key,company,kind) in new[]{("oms_policy","oms_company_id","ОМС"),("dms_policy","dms_company_id","ДМС")})
-                {
-                    var old=A(P(profile,"policies")).FirstOrDefault(p=>S(p,"kind")==kind&&B(p,"isActive"));
-                    if(V(v,key)==""&&I(old,"id")>0)await Request("POST","api/policies/"+I(old,"id")+"/close");
-                    else if(V(v,key)!=""&&(S(old,"number")!=V(v,key)||S(old,"companyId")!=V(v,company)))
-                    {
-                        if(V(v,company)=="")throw new InvalidOperationException("Данные пациента сохранены. Для полиса укажите страховую компанию.");
-                        await Request("POST","api/patients/"+id+"/policies",new{kind,number=V(v,key),companyId=Number(v,company),validFrom=DateTime.Today.ToString("yyyy-MM-dd"),validTo=(string?)null});
-                    }
-                }
-                if(Optional(v,"district_id") is int district&&Optional(v,"primary_doctor_id") is int doctor)
-                {
-                    var attached=P(profile,"attachment");if(I(attached,"districtId")!=district||I(attached,"employeeId")!=doctor)await Request("POST","api/patients/"+id+"/attachments",new{districtId=district,employeeId=doctor});
-                }return id;
+                result=await Request(id==0?"POST":"PUT","api/patients"+(id==0?"/details":"/"+id+"/details"),new {
+                    patient=Person(v),omsNumber=V(v,"oms_policy"),omsCompanyId=Number(v,"oms_company_id"),dmsNumber=Nullable(v,"dms_policy"),
+                    dmsCompanyId=Optional(v,"dms_company_id"),districtId=Optional(v,"district_id"),employeeId=Optional(v,"primary_doctor_id") });break;
             case "schedule":result=await Request(id==0?"POST":"PUT","api/schedules"+(id==0?"":"/"+id),new{employeeId=Number(v,"employee_id"),roomId=Number(v,"room_id"),workDate=V(v,"work_date"),startTime=V(v,"start_time"),endTime=V(v,"end_time"),slotMinutes=Number(v,"slot_minutes")});break;
             case "booking":
                 var slot=V(v,"slot").Split('|');if(slot.Length!=2)throw new InvalidOperationException("Выберите слот.");
                 result=id==0?await Request("POST","api/appointments",new{scheduleId=int.Parse(slot[0]),startTime=slot[1],patientId=s.Role=="Пациент"?s.PatientId:Optional(v,"patient_id"),source=s.Role=="Пациент"?"приложение":"регистратура"}):await Request("POST","api/appointments/"+id+"/reschedule",new{scheduleId=int.Parse(slot[0]),startTime=slot[1]});break;
             case "visit":result=await Request("PUT","api/visits/"+id,new{complaints=V(v,"complaints"),anamnesis=Nullable(v,"anamnesis"),objectiveStatus=Nullable(v,"objective_status"),diagnosisCode=Nullable(v,"diagnosis_code"),recommendations=Nullable(v,"recommendations")});break;
             case "prescription":
-                if(id>0)throw new InvalidOperationException("Выданное назначение нельзя изменить. Создайте новое назначение.");
-                result=await Request("POST","api/visits/"+Number(v,"visit_id")+"/prescriptions",new{drugId=Number(v,"drug_id"),dosage=V(v,"dosage"),instruction=V(v,"instruction"),isRecipe=V(v,"is_recipe")=="true"});break;
+                result=await Request(id==0?"POST":"PUT",id==0?"api/visits/"+Number(v,"visit_id")+"/prescriptions":"api/prescriptions/"+id,new{drugId=Number(v,"drug_id"),dosage=V(v,"dosage"),instruction=V(v,"instruction"),isRecipe=V(v,"is_recipe")=="true"});break;
             case "referral":result=await Request("POST","api/visits/"+Number(v,"visit_id")+"/referrals",new{serviceId=Number(v,"service_id")});break;
             case "result":
-                if(v.TryGetValue("file_data",out var encoded)&&encoded.Length>0)
+                using(var form=new MultipartFormDataContent())
                 {
-                    var bytes=Convert.FromBase64String(encoded);if(bytes.Length>10*1024*1024)throw new InvalidOperationException("Максимум 10 МБ.");
-                    var name=V(v,"file_name");var mime=System.IO.Path.GetExtension(name).ToLowerInvariant() switch{".pdf"=>"application/pdf",".png"=>"image/png",".jpg" or ".jpeg"=>"image/jpeg",_=>throw new InvalidOperationException("Выберите файл PDF, JPG или PNG.")};
-                    using var form=new MultipartFormDataContent();var content=new ByteArrayContent(bytes);content.Headers.ContentType=new MediaTypeHeaderValue(mime);form.Add(content,"file",name);await Request("POST","api/referrals/"+id+"/files",form);
-                }
-                result=await Request("PUT","api/referrals/"+id+"/result",new{result=V(v,"result")});break;
+                    form.Add(new StringContent(V(v,"result")),"result");
+                    var uploads=v.TryGetValue("files_json",out var filesJson)?JsonSerializer.Deserialize<List<AttachmentUpload>>(filesJson)??[]:
+                        v.TryGetValue("file_data",out var data)&&data.Length>0?[new AttachmentUpload(V(v,"file_name"),data)]:[];
+                    foreach(var upload in uploads)
+                    {
+                        var bytes=Convert.FromBase64String(upload.Data);if(bytes.Length>10*1024*1024)throw new InvalidOperationException("Максимум 10 МБ.");
+                        var name=upload.Name;var mime=System.IO.Path.GetExtension(name).ToLowerInvariant() switch{".pdf"=>"application/pdf",".png"=>"image/png",".jpg" or ".jpeg"=>"image/jpeg",_=>throw new InvalidOperationException("Выберите файл PDF, JPG или PNG.")};
+                        var content=new ByteArrayContent(bytes);content.Headers.ContentType=new MediaTypeHeaderValue(mime);form.Add(content,"files",name);
+                    }
+                    result=await Request("POST","api/referrals/"+id+"/complete",form);
+                }break;
             case "rendered":
-                if(id>0)throw new InvalidOperationException("Оказанную услугу нельзя изменить.");
-                result=await Request("POST","api/visits/"+Number(v,"visit_id")+"/services",new{serviceId=Number(v,"service_id"),quantity=Number(v,"quantity")});break;
+                result=await Request(id==0?"POST":"PUT",id==0?"api/visits/"+Number(v,"visit_id")+"/services":"api/visit-services/"+id,new{serviceId=Number(v,"service_id"),quantity=Number(v,"quantity")});break;
             case "payment":result=await Request("POST","api/invoices/"+id+"/pay",new{methodId=Number(v,"method_id"),policyId=Optional(v,"policy_id")});return id;
             case "document":result=await Request("POST","api/patients/"+Number(v,"patient_id")+"/documents",new{typeId=Number(v,"type_id"),visitId=Optional(v,"visit_id"),content=V(v,"content")});break;
             case "account":
@@ -136,6 +134,19 @@ public sealed partial class HttpClinicGateway
         Check(s);
         switch(action)
         {
+            case "delete_referral":await Request("DELETE","api/referrals/"+id);return;
+            case "delete_schedule":await Request("DELETE","api/schedules/"+id);return;
+            case "delete_prescription":await Request("DELETE","api/prescriptions/"+id);return;
+            case "delete_rendered":await Request("DELETE","api/visit-services/"+id);return;
+            case "delete_account":await Request("DELETE","api/accounts/"+id);return;
+            case "cancel_invoice":await Request("POST","api/invoices/"+id+"/cancel");return;
+            case "read_all":await Request("POST","api/my/notifications/read-all");return;
+            case "delete_dictionary":
+                var table=values?.GetValueOrDefault("table")??"";
+                if(!DictionaryRoutes.TryGetValue(table,out var route))throw new InvalidOperationException("Неизвестный справочник");
+                var code=table=="diagnosis"?values!.GetValueOrDefault("code",""):id.ToString();
+                await Request("DELETE","api/"+route+"/"+Uri.EscapeDataString(code));return;
+
             case "start_visit":
                 if((await Visits(s)).Any(v=>I(v,"appointmentId")==id))return;
                 await Request("POST","api/visits",new{appointmentId=id});return;
@@ -144,7 +155,7 @@ public sealed partial class HttpClinicGateway
             case "cancel_referral":await Request("POST","api/referrals/"+id+"/cancel");return;
             case "mark_read":await Request("POST","api/my/notifications/"+id+"/read");return;
             case "create_invoice":
-                var service=(await ListAsync(s,"rendered")).First(r=>r.Id==id);await Request("POST","api/invoices",new{patientId=int.Parse(service.Values["patient_id"]),visitServiceIds=(int[]?)null});return;
+                var service=(await ListAsync(s,"rendered")).First(r=>r.Id==id);await Request("POST","api/invoices",new{patientId=int.Parse(service.Values["patient_id"]),visitServiceIds=new[]{id}});return;
             case "toggle_patient":
                 var patient=P(await Request("GET","api/patients/"+id),"patient");await Request(B(patient,"isActive")?"DELETE":"POST","api/patients/"+id+(B(patient,"isActive")?"":"/restore"));return;
             case "toggle_account":
@@ -162,12 +173,23 @@ public sealed partial class HttpClinicGateway
         if(v.GetValueOrDefault("password","")!=v.GetValueOrDefault("password_confirmation",""))throw new InvalidOperationException("Пароли не совпадают.");
         await Request("POST","auth/register",new{login=V(v,"login"),password=v.GetValueOrDefault("password",""),lastName=V(v,"last_name"),firstName=V(v,"first_name"),middleName=Nullable(v,"middle_name"),birthDate=V(v,"birth_date"),gender=V(v,"gender"),snils=Nullable(v,"snils"),address=Nullable(v,"address"),phone=Nullable(v,"phone"),omsNumber=V(v,"oms_policy"),omsCompanyId=Number(v,"oms_company_id")});
     }
+    public async Task<List<AttachmentInfo>> AttachmentsAsync(ClinicSession s,int referralId)
+    {
+        Check(s);var files=await Many(s.Role=="Пациент"?"api/my/referrals/"+referralId+"/files":"api/referrals/"+referralId+"/files");
+        return files.Select(f=>new AttachmentInfo(I(f,"id"),S(f,"fileName"),long.TryParse(S(f,"size"),out var size)?size:0)).ToList();
+    }
+    public async Task<byte[]> DownloadAttachmentAsync(ClinicSession s,int fileId)
+    {
+        Check(s);
+        using var response=await _http.GetAsync((s.Role=="Пациент"?"api/my/referral-files/":"api/referral-files/")+fileId);
+        if(!response.IsSuccessStatusCode)throw new InvalidOperationException("Не удалось скачать файл. Обновите список.");
+        return await response.Content.ReadAsByteArrayAsync();
+    }
     public async Task<byte[]?> AttachmentAsync(ClinicSession s,int referralId)
     {
-        Check(s);var files=await Many(s.Role=="Пациент"?"api/my/referrals/"+referralId+"/files":"api/referrals/"+referralId+"/files");if(files.Count==0)return null;
-        using var response=await _http.GetAsync((s.Role=="Пациент"?"api/my/referral-files/":"api/referral-files/")+I(files[0],"id"));
-        if(!response.IsSuccessStatusCode)throw new InvalidOperationException("Не удалось скачать файл ("+(int)response.StatusCode+").");return await response.Content.ReadAsByteArrayAsync();
+        var files=await AttachmentsAsync(s,referralId);return files.Count==0?null:await DownloadAttachmentAsync(s,files[0].Id);
     }
+    public async Task DeleteAttachmentAsync(ClinicSession s,int id) { Check(s);await Request("DELETE","api/referral-files/"+id); }
     public async Task<string> BackupAsync(ClinicSession s)
     {
         Check(s);var backup=await Request("POST","api/backups");return JsonSerializer.Serialize(new{kind="clinic-server-backup",fileName=S(backup,"fileName"),server=_http.BaseAddress!.ToString(),createdAt=S(backup,"createdAt")},new JsonSerializerOptions{WriteIndented=true});
@@ -177,5 +199,6 @@ public sealed partial class HttpClinicGateway
         Check(s);var marker=JsonDocument.Parse(json).RootElement;
         if(S(marker,"kind")!="clinic-server-backup"||S(marker,"server")!=_http.BaseAddress!.ToString())throw new InvalidOperationException("Эта копия относится к другой системе. Выберите копию текущей поликлиники.");
         await Request("POST","api/backups/restore",new{fileName=S(marker,"fileName")});
+        SessionExpired?.Invoke("Данные восстановлены. Войдите снова.");
     }
 }

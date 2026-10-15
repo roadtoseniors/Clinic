@@ -18,6 +18,7 @@ public static class FormValidation
             if (field.Spec.Required && string.IsNullOrWhiteSpace(value))
                 throw new InvalidOperationException($"Заполните поле «{field.Spec.Label}».");
             if (value.Length == 0) continue;
+            if (InputRules.Error(field.Spec.Key, value) is string error) throw new InvalidOperationException($"{field.Spec.Label}: {error}");
             if (field.IsDate && !DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
                 throw new InvalidOperationException($"Выберите корректную дату в поле «{field.Spec.Label}».");
             if (field.Spec.Key == "birth_date" && DateTime.ParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture) > DateTime.Today)

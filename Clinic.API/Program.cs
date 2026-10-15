@@ -4,7 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile("api.local.json", optional: true, reloadOnChange: false);
+builder.Configuration.AddJsonFile("api.local.json", optional: true, reloadOnChange: false).AddEnvironmentVariables();
 var connection = builder.Configuration.GetConnectionString("Clinic")
     ?? Environment.GetEnvironmentVariable("CLINIC_DB_CONNECTION")
     ?? throw new InvalidOperationException("Укажите ConnectionStrings:Clinic в api.local.json или CLINIC_DB_CONNECTION.");
@@ -12,6 +12,8 @@ AuthOption.SigningKey = builder.Configuration["Auth:SigningKey"] ?? Environment.
 _ = AuthOption.GetSymmetricSecurityKey();
 builder.Services.AddDbContext<MyDbContext>(options => options.UseNpgsql(connection));
 builder.Services.AddCors();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<LoginProtection>();
 
 // Глобальная обработка ошибок: try/catch в эндпоинтах не нужен
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -21,6 +23,7 @@ builder.Services.Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = true)
 // Время приёма можно присылать как "10:30" (стандартный JSON требует "10:30:00")
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new TimeOnlyJsonConverter()));
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<BackupService>();
 builder.Services.AddHostedService<ParentProcessLifetime>();
@@ -28,6 +31,7 @@ builder.Services.AddHostedService<ParentProcessLifetime>();
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
+    options.Events = new JwtBearerEvents { OnTokenValidated = SessionTokens.ValidateAsync };
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -42,6 +46,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 });
 
 var app = builder.Build();
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<MyDbContext>();
+    await RuntimeSchema.EnsureAsync(db);
+}
 
 app.MapGet("/health", async (MyDbContext db) => await db.Database.CanConnectAsync() ? Results.Ok(new { status = "ok", database = db.Database.GetDbConnection().Database }) : Results.StatusCode(503));
 
@@ -59,6 +68,8 @@ app.MapAuthEndpoints();
 
 // Всё остальное только с токеном. Конкретные права проверяются в каждом эндпоинте (RequirePermission).
 var api = app.MapGroup("/api").RequireAuthorization();
+api.AddEndpointFilter<MedicalAccessFilter>();
+api.AddEndpointFilter<ChangeAuditFilter>();
 
 api.MapClientEndpoints();
 api.MapMeEndpoints();          // профиль, тема, пароль, кабинет пациента /api/my/...

@@ -1,10 +1,12 @@
 namespace Clinic.API;
 
 // Регистратура: пациенты, полисы, прикрепление к участку, документы
-public static class PatientEndpoints
+public static partial class PatientEndpoints
 {
     public static void MapPatientEndpoints(this RouteGroupBuilder api)
     {
+        api.MapPost("/patients/details", (PatientDetailsInput dto, ClaimsPrincipal user, MyDbContext db, AuditService audit, CancellationToken ct) => SaveDetails(null,dto,user,db,audit,ct)).RequirePermission(Perm.PatientManage);
+        api.MapPut("/patients/{id:int}/details", (int id, PatientDetailsInput dto, ClaimsPrincipal user, MyDbContext db, AuditService audit, CancellationToken ct) => SaveDetails(id,dto,user,db,audit,ct)).RequirePermission(Perm.PatientManage);
         api.MapGet("/patients", Search).RequirePermission(Perm.PatientView);
         api.MapGet("/patients/{id:int}", Get).RequirePermission(Perm.PatientView, Perm.MedcardView);
         api.MapPost("/patients", Create).RequirePermission(Perm.PatientManage);
@@ -31,9 +33,9 @@ public static class PatientEndpoints
     // GET /api/patients?q=иванов&birthDate=1990-05-01&page=1&pageSize=50
     // q ищет по ФИО, номеру карты, СНИЛС, телефону и номеру полиса
     private static async Task<IResult> Search(string? q, DateOnly? birthDate, bool? includeInactive,
-        int? page, int? pageSize, MyDbContext db, CancellationToken ct)
+        int? page, int? pageSize, ClaimsPrincipal user, MyDbContext db, CancellationToken ct)
     {
-        var query = db.Patients.AsNoTracking();
+        var query = MedicalAccess.Patients(db, user).AsNoTracking();
         if (includeInactive != true) query = query.Where(p => p.IsActive);
         if (birthDate is DateOnly bd) query = query.Where(p => p.BirthDate == bd);
 
@@ -65,9 +67,10 @@ public static class PatientEndpoints
     }
 
     private static async Task<string?> ValidatePatientAsync(string lastName, string firstName, DateOnly birthDate, char gender,
-        string? snils, int? exceptId, MyDbContext db, CancellationToken ct)
+        string? snils, int? exceptId, MyDbContext db, CancellationToken ct, string? middleName = null, string? phone = null, string? address = null)
     {
         if (Rules.ValidatePerson(lastName, firstName, birthDate, gender) is string error) return error;
+        if (Rules.ValidateContacts(middleName,phone,snils,address) is string contactError) return contactError;
         if (snils is not null && await db.Patients.AnyAsync(p => p.Snils == snils && p.Id != exceptId, ct))
             return "Пациент с таким СНИЛС уже есть";
         return null;
@@ -77,7 +80,7 @@ public static class PatientEndpoints
     private static async Task<IResult> Create(CreatePatientDto dto, ClaimsPrincipal user, MyDbContext db, AuditService audit, CancellationToken ct)
     {
         var snils = Text.Clean(dto.Snils);
-        if (await ValidatePatientAsync(dto.LastName, dto.FirstName, dto.BirthDate, dto.Gender, snils, null, db, ct) is string error)
+        if (await ValidatePatientAsync(dto.LastName, dto.FirstName, dto.BirthDate, dto.Gender, snils, null, db, ct, dto.MiddleName, dto.Phone, dto.Address) is string error)
             return Err.BadRequest(error);
 
         var omsNumber = Text.Clean(dto.OmsNumber);
@@ -130,7 +133,7 @@ public static class PatientEndpoints
     private static async Task<IResult> Update(int id, PatientInput dto, ClaimsPrincipal user, MyDbContext db, AuditService audit, CancellationToken ct)
     {
         var snils = Text.Clean(dto.Snils);
-        if (await ValidatePatientAsync(dto.LastName, dto.FirstName, dto.BirthDate, dto.Gender, snils, id, db, ct) is string error)
+        if (await ValidatePatientAsync(dto.LastName, dto.FirstName, dto.BirthDate, dto.Gender, snils, id, db, ct, dto.MiddleName, dto.Phone, dto.Address) is string error)
             return Err.BadRequest(error);
 
         var patient = await db.Patients.FirstOrDefaultAsync(p => p.Id == id, ct);
@@ -215,6 +218,7 @@ public static class PatientEndpoints
         if (kind is null || !PolicyKind.All.Contains(kind)) return Err.BadRequest("Вид полиса: ОМС или ДМС");
 
         var number = Text.Clean(dto.Number);
+        if (Clinic.Workspace.InputRules.Error(kind == PolicyKind.Oms ? "oms_policy" : "dms_policy", number) is string formatError) return Err.BadRequest(formatError);
         if (await ValidatePolicyAsync(number, dto.CompanyId, dto.ValidFrom, dto.ValidTo, null, db, ct) is string error)
             return Err.BadRequest(error);
         if (!await db.Patients.AnyAsync(p => p.Id == id && p.IsActive, ct))
@@ -261,6 +265,7 @@ public static class PatientEndpoints
 
         var policy = await db.PatientPolicies.FirstOrDefaultAsync(p => p.Id == id, ct);
         if (policy is null) return Err.NotFound("Полис не найден");
+        if (Clinic.Workspace.InputRules.Error(policy.Kind == PolicyKind.Oms ? "oms_policy" : "dms_policy", number) is string formatError) return Err.BadRequest(formatError);
 
         policy.Number = number!;
         policy.CompanyId = dto.CompanyId;

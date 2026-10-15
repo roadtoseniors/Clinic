@@ -18,4 +18,4 @@ public class AuthOption
             : throw new InvalidOperationException("Auth:SigningKey / CLINIC_JWT_KEY: минимум 32 символа.");
 }
 
-public record AuthData(string Login, string Password);
+public record AuthData(string Login, string Password, string? ChallengeId = null, string? CaptchaAnswer = null);

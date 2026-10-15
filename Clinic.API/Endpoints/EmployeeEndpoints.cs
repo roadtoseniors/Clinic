@@ -52,6 +52,9 @@ public static class EmployeeEndpoints
     private static async Task<string?> ValidateAsync(EmployeeInput dto, MyDbContext db, CancellationToken ct)
     {
         if (Text.Clean(dto.LastName) is null || Text.Clean(dto.FirstName) is null) return "Фамилия и имя обязательны";
+        if (Rules.ValidateContacts(dto.MiddleName,dto.Phone,null,null) is string error) return error;
+        if (Clinic.Workspace.InputRules.Error("last_name",dto.LastName) is string lastError) return lastError;
+        if (Clinic.Workspace.InputRules.Error("first_name",dto.FirstName) is string firstError) return firstError;
         if (!await db.Posts.AnyAsync(p => p.Id == dto.PostId, ct)) return "Должность не найдена";
         if (dto.SpecialtyId is int s && !await db.Specialties.AnyAsync(x => x.Id == s, ct)) return "Специальность не найдена";
         return null;

@@ -42,6 +42,8 @@ public static class BackupEndpoints
         var (ok, message) = await backup.RestoreAsync(connectionString, path);
         if (!ok) return Results.Problem(title: message, statusCode: 500);
 
+        await RuntimeSchema.ResetSessionsAsync(db,ct);
+
         // Пишем в журнал уже после восстановления, иначе запись затрётся данными копии
         await WriteLogAsync(db, user, BackupAction.Restore, dto.FileName, ct);
         return Results.Ok(new { message });
@@ -57,7 +59,7 @@ public static class BackupEndpoints
 
     private static async Task WriteLogAsync(MyDbContext db, ClaimsPrincipal user, string action, string fileName, CancellationToken ct)
     {
-        if (user.GetAccountId() is not int accountId) return;
+        if (user.GetAccountId() is not int accountId || !await db.Accounts.AnyAsync(a=>a.Id==accountId,ct)) return;
         db.BackupLogs.Add(new BackupLog
         {
             AccountId = accountId,

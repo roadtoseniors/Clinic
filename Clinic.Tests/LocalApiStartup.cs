@@ -47,7 +47,7 @@ internal static class LocalApiStartup
                 { ApiAddress = address.ToString(), Login = "kirillov", Password = "demo12345" };
             await vm.SignInCommand.ExecuteAsync(null);
             Assert(vm.IsSignedIn && vm.Workspace is not null, "Login opens real patient workspace after readiness check: " + vm.StatusMessage);
-            await vm.SignOutCommand.ExecuteAsync(null);
+            await TestUi.SignOutAsync(vm);
 
             using (var crashed = Process.GetProcessById(originalPid!.Value))
             {

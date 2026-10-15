@@ -7,6 +7,7 @@ public static class MeEndpoints
     public static void MapMeEndpoints(this RouteGroupBuilder api)
     {
         api.MapGet("/me", GetMe);
+        api.MapPost("/me/logout", async (ClaimsPrincipal user, MyDbContext db, CancellationToken ct) => { await SessionTokens.RevokeAsync(user, db, ct); return Results.NoContent(); });
         api.MapPut("/me/theme", SetTheme);
         api.MapPut("/me/password", ChangePassword);
 

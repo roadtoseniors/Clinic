@@ -91,10 +91,18 @@
           <TextBlock Text="Вход в систему" FontSize="27" FontWeight="Bold" Foreground="{DynamicResource PrimaryText}"/>
           <TextBlock Text="Введите данные своей учётной записи" FontSize="13" Foreground="{DynamicResource MutedText}" Margin="0,8,0,24"/>
           <TextBlock Text="Логин" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryText}" Margin="0,0,0,8"/>
-          <TextBox x:Name="LoginInput" IsEnabled="{Binding CanInteract}" Classes="loginInput" PlaceholderText="Ваш логин" Text="{Binding Login, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBox x:Name="LoginInput" IsEnabled="{Binding CanInteract}" Classes="loginInput" MaxLength="50" PlaceholderText="Ваш логин" Text="{Binding Login, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
           <TextBlock Text="Пароль" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryText}" Margin="0,18,0,8"/>
-          <TextBox IsEnabled="{Binding CanInteract}" Classes="loginInput" PlaceholderText="Введите пароль" PasswordChar="●" RevealPassword="{Binding RevealPassword}" Text="{Binding Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBox IsEnabled="{Binding CanInteract}" Classes="loginInput" MaxLength="100" PlaceholderText="Введите пароль" PasswordChar="●" RevealPassword="{Binding RevealPassword}" Text="{Binding Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
           <CheckBox Content="Показать пароль" IsChecked="{Binding RevealPassword}" IsEnabled="{Binding CanInteract}" FontSize="12" Foreground="{DynamicResource MutedText}" Margin="0,10,0,0"/>
+          <StackPanel IsVisible="{Binding HasCaptcha}" Spacing="8" Margin="0,14,0,0">
+            <TextBlock Text="Введите символы с картинки" FontSize="12"/>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+              <views:CaptchaImage ImageBase64="{Binding CaptchaImageBase64}" Height="68" Stretch="Uniform" HorizontalAlignment="Left"/>
+              <Button Grid.Column="1" Content="Обновить" Classes="quiet" Command="{Binding RefreshCaptchaCommand}" IsEnabled="{Binding CanInteract}" ToolTip.Tip="Получить другую картинку"/>
+            </Grid>
+            <TextBox Text="{Binding CaptchaAnswer, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Символы без учёта регистра" MaxLength="5" IsEnabled="{Binding CanInteract}" ToolTip.Tip="Введите пять букв и цифр с картинки"/>
+          </StackPanel>
           <Border Classes="notice" Classes.error="{Binding !IsStatusSuccess}" Classes.success="{Binding IsStatusSuccess}" IsVisible="{Binding HasStatusMessage}" Padding="12" CornerRadius="8" Margin="0,14,0,0"><TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12"/></Border>
           <ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="True" Height="3" Margin="0,12,0,0"/>
           <Button Classes="signIn" IsEnabled="{Binding CanInteract}" Command="{Binding SignInCommand}" HorizontalAlignment="Stretch" Margin="0,20,0,0">
@@ -120,7 +128,7 @@
     <Border Classes="card" Width="480" MaxHeight="650" Padding="28" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20">
       <Grid RowDefinitions="Auto,*,Auto">
         <StackPanel Spacing="8" Margin="0,0,0,20"><TextBlock Text="Регистрация пациента" FontSize="24" FontWeight="Bold"/><TextBlock Text="{Binding RegistrationHint}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" FontSize="12"/></StackPanel>
-        <ScrollViewer Grid.Row="1" IsEnabled="{Binding CanInteract}"><StackPanel Spacing="12"><ItemsControl ItemsSource="{Binding RegistrationFields}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:EditorField"><StackPanel Spacing="6" Margin="0,0,0,14"><TextBlock Text="{Binding Label}" FontSize="12"/><TextBox IsVisible="{Binding IsText}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" PlaceholderText="{Binding Placeholder}"/><CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/><ComboBox IsVisible="{Binding IsChoice}" PlaceholderText="Выберите…" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Text="{Binding RegistrationError}" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap"/></StackPanel></ScrollViewer>
+        <ScrollViewer Grid.Row="1" IsEnabled="{Binding CanInteract}"><StackPanel Spacing="12"><ItemsControl ItemsSource="{Binding RegistrationFields}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:EditorField"><StackPanel Spacing="6" Margin="0,0,0,14"><TextBlock ToolTip.Tip="{Binding Hint}" Text="{Binding Label}" FontSize="12"/><TextBox IsVisible="{Binding IsText}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" PlaceholderText="{Binding Placeholder}" ToolTip.Tip="{Binding Hint}"/><CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/><ComboBox IsVisible="{Binding IsChoice}" PlaceholderText="Выберите…" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Text="{Binding RegistrationError}" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap"/></StackPanel></ScrollViewer>
         <StackPanel Grid.Row="2" IsEnabled="{Binding CanInteract}" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,20,0,0"><Button Content="Отмена" Classes="quiet" Command="{Binding CloseRegistrationCommand}"/><Button Content="Зарегистрироваться" Classes="primary" Command="{Binding RegisterCommand}"/></StackPanel>
       </Grid>
     </Border>
@@ -133,6 +141,18 @@
         <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
           <Button Content="Назад" Classes="quiet" Command="{Binding CancelRegistrationDiscardCommand}"/>
           <Button Content="Отменить регистрацию" Classes="primary" Command="{Binding ConfirmRegistrationDiscardCommand}"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Border>
+  <Border Background="#99000000" IsVisible="{Binding IsExitConfirmOpen}">
+    <Border Classes="card" Width="460" Margin="24" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="18">
+        <TextBlock Text="{Binding ExitTitle}" FontSize="23" FontWeight="Bold" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding ExitDescription}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}"/>
+        <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+          <Button Content="Остаться" Classes="quiet" Command="{Binding CancelExitCommand}"/>
+          <Button Content="{Binding ExitLabel}" Classes="primary" Command="{Binding ConfirmExitCommand}"/>
         </StackPanel>
       </StackPanel>
     </Border>

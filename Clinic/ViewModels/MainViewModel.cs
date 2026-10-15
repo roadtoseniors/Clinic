@@ -28,6 +28,21 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private string _registrationError = "";
     [ObservableProperty] private bool _isStatusSuccess;
     [ObservableProperty] private bool _revealPassword;
+    [ObservableProperty] private string _captchaAnswer = "";
+    [ObservableProperty] private string _captchaImageBase64 = "";
+    [ObservableProperty] private bool _hasCaptcha;
+    private string? _captchaId;
+    private void ShowCaptcha(CaptchaChallenge challenge)
+    { _captchaId = challenge.ChallengeId; CaptchaImageBase64 = challenge.ImageBase64; CaptchaAnswer = ""; HasCaptcha = true; }
+    private void ClearCaptcha() { _captchaId = null; CaptchaImageBase64 = CaptchaAnswer = ""; HasCaptcha = false; }
+    [RelayCommand] private async Task RefreshCaptchaAsync()
+    {
+        if (IsBusy || !HasCaptcha) return;
+        IsBusy = true;
+        try { await _prepareConnection(); using var api = new HttpClinicGateway(ApiAddress); ShowCaptcha(await api.RefreshCaptchaAsync(Login)); }
+        catch (Exception ex) { ShowError(WorkspaceViewModel.Friendly(ex)); }
+        finally { IsBusy = false; }
+    }
     [ObservableProperty] private bool _isThemeBusy;
     [ObservableProperty] private bool _isDarkTheme;
     [ObservableProperty] private string _themeToggleLabel = "Тёмная тема";
@@ -45,6 +60,32 @@ public partial class MainViewModel : ViewModelBase
     private int? _activeAccountId;
     private Dictionary<string, string> _registrationValues = [];
     private TaskCompletionSource<bool>? _registrationConfirmation;
+    private TaskCompletionSource<bool>? _exitConfirmation;
+    [ObservableProperty] private bool _isExitConfirmOpen;
+    [ObservableProperty] private string _exitTitle = "";
+    [ObservableProperty] private string _exitDescription = "";
+    [ObservableProperty] private string _exitLabel = "";
+    public Task<bool> ConfirmExitAsync(bool closeWindow = false)
+    {
+        if (_exitConfirmation is not null) return Task.FromResult(false);
+        ExitTitle = closeWindow ? "Закрыть приложение?" : "Выйти из системы?";
+        ExitDescription = closeWindow ? "Работа с поликлиникой будет завершена." : "Для продолжения потребуется снова ввести логин и пароль.";
+        ExitLabel = closeWindow ? "Закрыть приложение" : "Выйти";
+        _exitConfirmation = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        IsExitConfirmOpen = true;
+        return _exitConfirmation.Task;
+    }
+    [RelayCommand] private void ConfirmExit() => FinishExit(true);
+    [RelayCommand] private void CancelExit() => FinishExit(false);
+    private void FinishExit(bool accepted) { IsExitConfirmOpen = false; var t = _exitConfirmation; _exitConfirmation = null; t?.TrySetResult(accepted); }
+    public async Task<bool> ConfirmWindowCloseAsync()
+    {
+        if (IsBusy || Workspace?.IsBusy == true) return false;
+        if (HasRegistrationChanges && !await ConfirmRegistrationDiscardAsync()) return false;
+        if (Workspace is { HasUnsavedChanges: true } ws && !await ws.ConfirmDiscardAsync()) return false;
+        return await ConfirmExitAsync(true);
+    }
+    partial void OnIsExitConfirmOpenChanged(bool value) => OnPropertyChanged(nameof(CanInteract));
 
     private readonly Func<IClinicGateway> _gatewayFactory;
     private readonly Func<Task> _prepareConnection;
@@ -55,16 +96,22 @@ public partial class MainViewModel : ViewModelBase
         ApplyTheme(ThemePreferenceStore.Get(_themePreferenceKey));
     }
     public ObservableCollection<EditorField> RegistrationFields { get; } = [];
-    public bool CanInteract => !IsBusy && !IsRegistrationDiscardOpen;
+    public bool CanInteract => !IsBusy && !IsRegistrationDiscardOpen && !IsExitConfirmOpen;
     public bool HasRegistrationChanges => IsRegistrationOpen && RegistrationFields.Any(f => _registrationValues.GetValueOrDefault(f.Spec.Key) != f.Value);
     public string SignInLabel => IsBusy ? "Входим…" : "Войти";
     public string RegistrationHint => "Заполните личные данные и полис ОМС, затем создайте логин и пароль.";
-    private IClinicGateway CreateGateway() => _gatewayFactory();
+    private IClinicGateway CreateGateway()
+    {
+        var gateway=_gatewayFactory();
+        if(gateway is HttpClinicGateway http)http.SessionExpired+=message=>EndSession(message);
+        return gateway;
+    }
 
     [RelayCommand]
     private async Task SignInAsync()
     {
-        if (IsBusy) return;
+        if (IsBusy || IsRegistrationOpen || IsSignedIn || IsExitConfirmOpen) return;
+        if (HasCaptcha && string.IsNullOrWhiteSpace(CaptchaAnswer)) { ShowError("Введите символы с картинки."); return; }
         if (string.IsNullOrWhiteSpace(Login) || string.IsNullOrWhiteSpace(Password))
         {
             ShowError("Введите логин и пароль, чтобы продолжить.");
@@ -77,6 +124,7 @@ public partial class MainViewModel : ViewModelBase
         {
             await _prepareConnection();
             database = CreateGateway();
+            if (database is HttpClinicGateway api) api.SetCaptchaResponse(_captchaId, CaptchaAnswer);
             var result = await database.SignInAsync(Login, Password);
             if (result is null)
             {
@@ -103,9 +151,12 @@ public partial class MainViewModel : ViewModelBase
             _activeAccountId = session.AccountId;
             Workspace = new WorkspaceViewModel(this, database, session);
             await Workspace.InitializeAsync();
+            if(Workspace is null || _activeGateway!=database)throw new SessionExpiredException("Сессия завершена. Войдите снова.");
             IsSignedIn = true;
+            ClearCaptcha();
             ClearStatus();
         }
+        catch (CaptchaRequiredException ex) { ShowCaptcha(ex.Challenge); ShowError(ex.Message); }
         catch (Exception exception)
         {
             System.Diagnostics.Debug.WriteLine(exception);
@@ -135,6 +186,18 @@ public partial class MainViewModel : ViewModelBase
         if (IsBusy || Workspace?.IsBusy == true) return;
         if (Workspace is { HasUnsavedChanges: true } workspace &&
             !await workspace.ConfirmDiscardAsync()) return;
+        if (!await ConfirmExitAsync()) return;
+        if (_activeGateway is HttpClinicGateway api)
+        {
+            IsBusy = true;
+            try { await api.SignOutAsync(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
+            finally { IsBusy = false; }
+        }
+        EndSession();
+    }
+    private void EndSession(string? message = null)
+    {
         IsSignedIn = false;
         if (_activeGateway is IDisposable disposable) disposable.Dispose();
         _activeGateway = null;
@@ -148,6 +211,8 @@ public partial class MainViewModel : ViewModelBase
         RevealPassword = false;
         DisplayName = Role = Initials = Subtitle = string.Empty;
         ClearStatus();
+        ClearCaptcha();
+        if(message is not null)ShowError(message);
     }
 
     [RelayCommand] private async Task OpenRegistrationAsync()
@@ -247,7 +312,7 @@ public partial class MainViewModel : ViewModelBase
     partial void OnThemeErrorChanged(string value) => OnPropertyChanged(nameof(HasThemeError));
 
     partial void OnIsSignedInChanged(bool value) => OnPropertyChanged(nameof(IsSignedOut));
-    partial void OnLoginChanged(string value) => ClearStatus();
+    partial void OnLoginChanged(string value) { ClearStatus(); ClearCaptcha(); }
     partial void OnPasswordChanged(string value) { if(!IsBusy) ClearStatus(); }
 
     partial void OnIsBusyChanged(bool value)

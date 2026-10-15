@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace Clinic.Desktop;
 
 // Only a configured source checkout owns a local server. Published clients use their API address.
-internal sealed class LocalApiProcess(string root, Uri address) : IDisposable
+internal sealed class LocalApiProcess(string root, Uri address, string? databaseConnection = null) : IDisposable
 {
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -77,8 +77,7 @@ internal sealed class LocalApiProcess(string root, Uri address) : IDisposable
                 throw new InvalidOperationException("По адресу поликлиники отвечает другой сервис. Проверьте настройки сервера.");
             return true;
         }
-        catch (HttpRequestException ex) when (ex.InnerException is System.Net.Sockets.SocketException
-               { SocketErrorCode: System.Net.Sockets.SocketError.ConnectionRefused }) { return false; }
+        catch (HttpRequestException ex) when (IsUnavailable(ex)) { return false; }
         catch (System.Text.Json.JsonException)
         {
             throw new InvalidOperationException("По адресу поликлиники отвечает другой сервис. Проверьте настройки сервера.");
@@ -87,6 +86,15 @@ internal sealed class LocalApiProcess(string root, Uri address) : IDisposable
         {
             throw new InvalidOperationException("Сервис поликлиники не ответил вовремя. Повторите вход.");
         }
+    }
+
+    private static bool IsUnavailable(Exception exception)
+    {
+        for(Exception? current=exception;current is not null;current=current.InnerException)
+            if(current is System.Net.Sockets.SocketException socket && socket.SocketErrorCode is
+                System.Net.Sockets.SocketError.ConnectionRefused or System.Net.Sockets.SocketError.ConnectionReset or System.Net.Sockets.SocketError.ConnectionAborted)
+                return true;
+        return false;
     }
 
     private void Start()
@@ -111,6 +119,7 @@ internal sealed class LocalApiProcess(string root, Uri address) : IDisposable
         start.ArgumentList.Add("--urls");
         start.ArgumentList.Add(address.ToString().TrimEnd('/'));
         start.Environment["CLINIC_PARENT_PROCESS_ID"] = Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if(databaseConnection is not null)start.Environment["ConnectionStrings__Clinic"]=databaseConnection;
         start.Environment["TZ"] = "Europe/Moscow";
         start.Environment["Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command"] = "Warning";
         _process?.Dispose();
@@ -137,7 +146,7 @@ internal sealed class LocalApiProcess(string root, Uri address) : IDisposable
         _shutdown.Cancel();
         if (_process is not null)
         {
-            try { if (!_process.HasExited) _process.Kill(entireProcessTree: true); }
+            try { if (!_process.HasExited) { _process.Kill(entireProcessTree: true); _process.WaitForExit(5000); } }
             catch (InvalidOperationException) { }
             _process.Dispose();
         }

@@ -17,6 +17,16 @@ public partial class EditorField : ObservableObject
 {
     public FieldSpec Spec { get; }
     public string Label => (IsDate ? Spec.Label.Replace(" (ГГГГ-ММ-ДД)", "") : Spec.Label) + (Spec.Required ? " *" : "");
+    public string Hint => Spec.Key switch {
+        "phone" => "От 10 до 15 цифр; можно использовать +, пробелы, скобки и дефисы",
+        "snils" => "11 цифр, например 123-456-789 00",
+        "oms_policy" => "Номер полиса ОМС из 16 цифр",
+        "password" or "new_password" => "От 8 символов, латинская буква и цифра",
+        "file_name" => "Можно прикрепить PDF, JPG или PNG до 10 МБ",
+        "start_time" or "end_time" => "Время в формате ЧЧ:ММ",
+        "price" or "amount" => "Сумма в рублях; копейки отделяются запятой или точкой",
+        _ => Spec.Required ? "Обязательное поле: " + Spec.Label : Spec.Label
+    };
     public bool IsChoice=>Spec.Lookup is not null;
     public bool IsDate => Spec.Key is "birth_date" or "work_date" or "valid_until";
     public bool IsText => !IsChoice && !IsDate;
@@ -66,6 +76,14 @@ public partial class WorkspaceViewModel : ViewModelBase
         if(CanInteract) SelectedSection=Sections.FirstOrDefault(s=>s.Key==key) ?? SelectedSection;
     }
     public ObservableCollection<Record> Rows { get; }=[];
+    public ObservableCollection<ReportChart> ReportCharts { get; }=[];
+    [ObservableProperty] private bool _reportTable;
+    public bool ShowReportCharts => IsReports && !ReportTable;
+    public bool ShowRecords => !IsReports || ReportTable;
+    public string ReportDisplayLabel => ReportTable ? "Диаграммы" : "Таблица";
+    [RelayCommand] private void ToggleReportDisplay() => ReportTable=!ReportTable;
+    partial void OnReportTableChanged(bool value) {OnPropertyChanged(nameof(ShowReportCharts));OnPropertyChanged(nameof(ShowRecords));OnPropertyChanged(nameof(ReportDisplayLabel));}
+    public bool IsReports => SelectedSection?.Key=="reports";
     public ObservableCollection<DashboardMetric> Metrics { get; }=[];
     public ObservableCollection<DashboardItem> Events { get; }=[];
     public ObservableCollection<RowAction> Actions { get; }=[];
@@ -76,6 +94,28 @@ public partial class WorkspaceViewModel : ViewModelBase
     private string _editorKind="";
     private int _editorId;
     private byte[]? _attachedFile;
+    private readonly List<AttachmentUpload> _attachedFiles=[];
+    private TaskCompletionSource<AttachmentInfo?>? _attachmentChoice;
+    public ObservableCollection<AttachmentInfo> AttachmentChoices { get; }=[];
+    [ObservableProperty] private bool _isAttachmentPickerOpen;
+    public bool CanDeleteAttachment => Session.Role=="Врач" && (Gateway is not HttpClinicGateway api || api.Permissions.Contains("referral.result"));
+    public Task<AttachmentInfo?> PickAttachmentAsync(IEnumerable<AttachmentInfo> files)
+    {
+        if(_attachmentChoice is not null)return Task.FromResult<AttachmentInfo?>(null);
+        Replace(AttachmentChoices,files);IsAttachmentPickerOpen=true;
+        _attachmentChoice=new(TaskCreationOptions.RunContinuationsAsynchronously);return _attachmentChoice.Task;
+    }
+    [RelayCommand] private void ChooseAttachment(AttachmentInfo file) => FinishAttachmentChoice(file);
+    [RelayCommand] private void CancelAttachmentChoice() => FinishAttachmentChoice(null);
+    private void FinishAttachmentChoice(AttachmentInfo? file) { IsAttachmentPickerOpen=false;var t=_attachmentChoice;_attachmentChoice=null;t?.TrySetResult(file); }
+    [RelayCommand] private async Task DeleteAttachmentAsync(AttachmentInfo file)
+    {
+        if(Gateway is not HttpClinicGateway api||!CanDeleteAttachment||IsBusy)return;
+        if(!await ConfirmActionAsync("Удалить файл?",file.Name+"\nФайл будет удалён из результата исследования.","Удалить"))return;
+        IsBusy=true;
+        try { await api.DeleteAttachmentAsync(Session,file.Id);AttachmentChoices.Remove(file);if(AttachmentChoices.Count==0)FinishAttachmentChoice(null);await RefreshAsync();ShowSuccess("Файл удалён."); }
+        catch(Exception ex) { ShowError(Friendly(ex)); } finally {IsBusy=false;}
+    }
     private Dictionary<string,List<Choice>> _choices=[];
     private TaskCompletionSource<bool>? _restoreConfirmation;
     private int _loadVersion;
@@ -110,12 +150,12 @@ public partial class WorkspaceViewModel : ViewModelBase
     public bool IsHome=>SelectedSection?.Key=="home";
     public bool IsBackup=>SelectedSection?.Key=="backup";
     public bool IsTable=>!IsHome&&!IsBackup;
-    public bool CanAdd=>SelectedSection?.NewLabel is not null;
+    public bool CanAdd=>SelectedSection?.NewLabel is not null && (Gateway is not HttpClinicGateway api || AccessPresentation.Write(Session.Role,SelectedSection.EditKind,api.Permissions));
     public string AddLabel=>SelectedSection?.NewLabel??"Добавить";
     public bool HasSelection=>SelectedRow is not null;
     public bool HasRows=>Rows.Count>0;
     public bool IsEmpty => IsTable && !HasRows && !IsBusy && !_loadFailed;
-    public bool CanInteract => !IsBusy && !IsActionConfirmOpen && !IsRestoreConfirmOpen;
+    public bool CanInteract => !IsBusy && !IsActionConfirmOpen && !IsRestoreConfirmOpen && !IsAttachmentPickerOpen;
     public bool HasEvents => Events.Count > 0;
     public string EmptyTitle => _allRows.Count > 0 ? "Ничего не найдено" : "Пока нет записей";
     public string EmptyDescription => _allRows.Count > 0 ? "Измените поисковый запрос или сбросьте фильтры." : CanAdd ? "Добавьте первую запись с помощью кнопки выше." : "Записи появятся здесь по мере работы поликлиники.";
@@ -136,25 +176,43 @@ public partial class WorkspaceViewModel : ViewModelBase
     public WorkspaceViewModel(MainViewModel owner,IClinicGateway gateway,ClinicSession session)
     {
         Owner=owner;Gateway=gateway;Session=session;
-        foreach(var section in Catalog.Sections(session.Role))Sections.Add(section);
+        foreach(var section in Catalog.Sections(session.Role))
+            if(gateway is not HttpClinicGateway api || AccessPresentation.Read(session.Role,section.Key,api.Permissions))Sections.Add(section);
+        if(gateway is HttpClinicGateway http && http.Permissions.Contains("role.manage"))
+            Sections.Add(new("roles","Роли и права","♙","Доступ сотрудников к разделам",["Роль","Название","Разрешения",""],"role_permissions"));
         _selectedSection=Sections[0];
     }
     public async Task InitializeAsync()=>await RefreshAsync();
-    partial void OnSelectedSectionChanged(Section? value)
+    private bool _navigationApproved;
+    partial void OnSelectedSectionChanged(Section? oldValue, Section? newValue)
     {
+        var value=newValue;
+        if(HasUnsavedChanges && !_navigationApproved)
+        {
+            _selectedSection=oldValue;OnPropertyChanged(nameof(SelectedSection));
+            _=ConfirmNavigationAsync(value);return;
+        }
         _allRows = []; Rows.Clear(); _loadFailed = false;
         PatientFilter=null;SortOrder="По умолчанию";Search="";FromDate="";ToDate="";StatusFilter="Все статусы";SelectedRow=null;
         NotifyPage();_ = LoadPageAsync();
     }
+    private async Task ConfirmNavigationAsync(Section? target)
+    {
+        if(!await ConfirmDiscardAsync())return;
+        IsEditorOpen=false;Fields.Clear();_attachedFile=null;_attachedFiles.Clear();
+        _navigationApproved=true;
+        try {SelectedSection=target;}finally{_navigationApproved=false;}
+    }
     private void NotifyPage()
     {
-        foreach(var p in new[]{nameof(Title),nameof(Description),nameof(IsHome),nameof(IsTable),nameof(IsBackup),nameof(CanAdd),nameof(AddLabel),nameof(Header1),nameof(Header2),nameof(Header3),nameof(Header4),nameof(EmptyTitle),nameof(EmptyDescription),nameof(HasRows),nameof(IsEmpty),nameof(RowCount),nameof(EmptyTitle),nameof(EmptyDescription)})OnPropertyChanged(p);
+        foreach(var p in new[]{nameof(Title),nameof(IsReports),nameof(ShowReportCharts),nameof(ShowRecords),nameof(Description),nameof(IsHome),nameof(IsTable),nameof(IsBackup),nameof(CanAdd),nameof(AddLabel),nameof(Header1),nameof(Header2),nameof(Header3),nameof(Header4),nameof(EmptyTitle),nameof(EmptyDescription),nameof(HasRows),nameof(IsEmpty),nameof(RowCount),nameof(EmptyTitle),nameof(EmptyDescription)})OnPropertyChanged(p);
     }
     partial void OnSearchChanged(string value)=>Filter();
     partial void OnStatusFilterChanged(string value)=>Filter();
     partial void OnFromDateChanged(string value) { OnPropertyChanged(nameof(FilterFrom)); Filter(); }
     partial void OnToDateChanged(string value) { OnPropertyChanged(nameof(FilterTo)); Filter(); }
     partial void OnSortOrderChanged(string value) => Filter();
+    partial void OnIsAttachmentPickerOpenChanged(bool value) => OnPropertyChanged(nameof(CanInteract));
     partial void OnIsActionConfirmOpenChanged(bool value) => OnPropertyChanged(nameof(CanInteract));
     partial void OnIsRestoreConfirmOpenChanged(bool value) => OnPropertyChanged(nameof(CanInteract));
     partial void OnMessageChanged(string value)=>OnPropertyChanged(nameof(HasMessage));
@@ -206,7 +264,8 @@ public partial class WorkspaceViewModel : ViewModelBase
             "Сначала старые" => rows.OrderBy(RecordDate).ThenBy(r => r.Id),
             _ => rows
         };
-        Replace(Rows,rows);if(SelectedRow is not null&&!Rows.Contains(SelectedRow))SelectedRow=null;
+        Replace(Rows,rows);
+        if(IsReports)Replace(ReportCharts,ReportChart.Build(Rows));else ReportCharts.Clear();if(SelectedRow is not null&&!Rows.Contains(SelectedRow))SelectedRow=null;
         foreach(var p in new[]{nameof(HasRows),nameof(IsEmpty),nameof(RowCount),nameof(EmptyTitle),nameof(EmptyDescription)})OnPropertyChanged(p);
     }
     private static DateTime? ParseDate(string text)=>DateTime.TryParseExact(text,"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out var d)?d:null;
@@ -257,10 +316,24 @@ public partial class WorkspaceViewModel : ViewModelBase
         if(page=="schedule"&&role=="Регистратор")Add("edit","Изменить график");
         if(page=="rendered"&&SelectedRow.Status=="без счёта") {if(SelectedRow.Values.GetValueOrDefault("can_edit")!="false")Add("edit","Изменить услугу");Add("create_invoice","Сформировать счёт");}
         if(page=="invoices") {if(role=="Регистратор"&&SelectedRow.Status=="не оплачен")Add("payment","Принять оплату");Add("export","Сохранить счёт");}
-        if(page=="notifications"&&SelectedRow.Status=="новое")Add("mark_read","Прочитано");
+        if(page=="notifications") { if(SelectedRow.Status=="новое")Add("mark_read","Прочитано"); if(Gateway is HttpClinicGateway)Add("read_all","Прочитать все"); }
         if(page=="documents")Add("export","Сохранить документ");
         if(page is "accounts" or "employees" or "services") {Add("edit","Редактировать");Add("toggle_"+(page=="accounts"?"account":page=="employees"?"employee":"service"),page=="accounts"?(SelectedRow.Status=="активен"?"Заблокировать пользователя":"Разблокировать пользователя"):(SelectedRow.Status=="архив"?"Восстановить":"Архивировать"));}
+        if(page=="roles")Add("edit","Изменить права");
         if(page=="dictionary")Add("edit","Редактировать");
+        if(Gateway is HttpClinicGateway)
+        {
+            if(page=="referrals" && role=="Врач" && SelectedRow.Status!="выполнено")Add("delete_referral","Удалить неисполненное направление");
+            if(page=="schedule" && role=="Регистратор")Add("delete_schedule","Удалить пустой график");
+            if(page=="prescriptions" && role=="Врач" && SelectedRow.Values.GetValueOrDefault("can_delete")=="true")Add("delete_prescription","Удалить назначение");
+            if(page=="rendered" && SelectedRow.Status=="без счёта")Add("delete_rendered","Удалить начисление");
+            if(page=="invoices" && role=="Регистратор" && SelectedRow.Status=="не оплачен")Add("cancel_invoice","Отменить счёт");
+            if(page=="dictionary")Add("delete_dictionary","Удалить запись");
+            if(page=="accounts")Add("edit_permissions","Права выбранной роли");
+            if(page=="accounts")Add("delete_account","Удалить аккаунт без истории");
+        }
+        if(Gateway is HttpClinicGateway permitted)
+            foreach(var action in Actions.Where(a=>!AccessPresentation.Action(role,SelectedSection?.EditKind,a.Key,permitted.Permissions)).ToArray())Actions.Remove(action);
     }
     [RelayCommand] private async Task AddAsync()
     {
@@ -273,7 +346,7 @@ public partial class WorkspaceViewModel : ViewModelBase
         try
         {
             if(Gateway is HttpClinicGateway http)http.PrepareEditor(kind,id);
-            _choices=kind=="password"?[]:await Gateway.ChoicesAsync(Session);Fields.Clear();_editorKind=kind;_editorId=id;_attachedFile=null;
+            _choices=kind=="password"?[]:await Gateway.ChoicesAsync(Session);Fields.Clear();_editorKind=kind;_editorId=id;_attachedFile=null;_attachedFiles.Clear();
             foreach(var spec in Gateway is HttpClinicGateway api?api.FieldsFor(kind,id):Catalog.Fields(kind))
             {
                 if(Session.Role=="Пациент"&&spec.Key=="patient_id")values[spec.Key]=Session.PatientId?.ToString()??"";
@@ -282,7 +355,7 @@ public partial class WorkspaceViewModel : ViewModelBase
             _editorValues = Fields.ToDictionary(f => f.Spec.Key, f => f.Value);
             EditorTitle=kind switch
             {
-                "password"=>"Смена пароля", "booking"=>id==0?"Запись на приём":"Перенос записи",
+                "role_permissions"=>"Права роли", "password"=>"Смена пароля", "booking"=>id==0?"Запись на приём":"Перенос записи",
                 "result"=>"Результат исследования", "payment"=>"Приём оплаты", "visit"=>"Протокол осмотра",
                 "patient"=>id==0?"Новый пациент":"Данные пациента", "prescription"=>id==0?"Назначение лечения":"Изменение назначения",
                 "referral"=>"Направление на исследование", "rendered"=>"Оказанная услуга", "document"=>"Оформление документа",
@@ -299,6 +372,7 @@ public partial class WorkspaceViewModel : ViewModelBase
         var row=SelectedRow;if(row is null||IsBusy||IsActionConfirmOpen)return;
         switch(key)
         {
+            case "edit_permissions":await OpenEditorAsync("role_permissions",int.Parse(row.Values["role_id"]),new());return;
             case "edit":await OpenEditorAsync(SelectedSection!.EditKind!,row.Id,new(row.Values));return;
             case "book_slot":await OpenEditorAsync("booking",0,new(row.Values));return;
             case "reschedule":await OpenEditorAsync("booking",row.Id,new(row.Values));return;
@@ -315,6 +389,9 @@ public partial class WorkspaceViewModel : ViewModelBase
         }
         var confirmation = key switch
         {
+            "delete_referral" or "delete_schedule" or "delete_prescription" or "delete_rendered" or "delete_dictionary" or "delete_account" => ("Удалить запись?", "Запись будет удалена. Связанные медицинские данные защищены: сервер отклонит удаление, если запись используется.", "Удалить"),
+            "cancel_invoice" => ("Отменить счёт?", "Неоплаченные услуги освободятся для нового счёта.", "Отменить счёт"),
+            "create_invoice" => ("Выставить счёт?", "В счёт войдёт только выбранная услуга с указанным количеством и ценой.", "Выставить счёт"),
             "cancel" => ("Отменить запись?", "Выбранное время станет доступно для записи другим пациентам.", "Отменить запись"),
             "cancel_referral" => ("Отменить направление?", "По этому направлению больше нельзя будет внести результат исследования.", "Отменить направление"),
             "no_show" => ("Отметить неявку?", "Убедитесь, что пациент не пришёл на приём.", "Отметить неявку"),
@@ -328,7 +405,7 @@ public partial class WorkspaceViewModel : ViewModelBase
         IsBusy=true;
         try
         {
-            await Gateway.ActAsync(Session,key,row.Id);
+            await Gateway.ActAsync(Session,key,row.Id,new(row.Values));
             if(key=="start_visit")
             {
                 SelectedSection=Sections.First(s=>s.Key=="visits");await RefreshAsync();SelectedRow=Rows.FirstOrDefault(r=>r.Values.GetValueOrDefault("appointment_id")==row.Id.ToString());
@@ -343,7 +420,7 @@ public partial class WorkspaceViewModel : ViewModelBase
     {
         if (IsBusy) return;
         if (HasUnsavedChanges && !await ConfirmDiscardAsync()) return;
-        IsEditorOpen=false;Fields.Clear();_attachedFile=null;
+        IsEditorOpen=false;Fields.Clear();_attachedFile=null;_attachedFiles.Clear();
     }
     public Task<bool> ConfirmDiscardAsync() => ConfirmActionAsync("Отменить изменения?", "Несохранённые изменения будут потеряны.", "Отменить изменения");
     private Task<bool> ConfirmActionAsync(string title, string description, string label)
@@ -371,15 +448,21 @@ public partial class WorkspaceViewModel : ViewModelBase
             FormValidation.Validate(Fields);
             var values=Fields.ToDictionary(f=>f.Spec.Key,f=>f.Value);
             if(_attachedFile is not null)values["file_data"]=Convert.ToBase64String(_attachedFile);
+            if(Gateway is HttpClinicGateway && _attachedFiles.Count>0)values["files_json"]=System.Text.Json.JsonSerializer.Serialize(_attachedFiles);
             await Gateway.SaveAsync(Session,new(_editorKind,_editorId,values));
-            IsEditorOpen=false;Fields.Clear();_attachedFile=null;await RefreshAsync();ShowSuccess("Изменения сохранены.");
+            IsEditorOpen=false;Fields.Clear();_attachedFile=null;_attachedFiles.Clear();await RefreshAsync();ShowSuccess("Изменения сохранены.");
         }
         catch(Exception ex){EditorError=Friendly(ex);}finally{IsBusy=false;}
     }
-    public void Attach(string name,byte[] data)
+    public bool Attach(string name,byte[] data)
     {
-        if(data.Length>10*1024*1024){EditorError="Максимальный размер файла — 10 МБ.";return;}
-        EditorError="";_attachedFile=data;var field=Fields.FirstOrDefault(f=>f.Spec.Key=="file_name");if(field is not null)field.Text=name;
+        if(_attachedFiles.Count>=10){EditorError="Можно прикрепить до 10 файлов.";return false;}
+        if(data.Length==0){EditorError="Файл пустой.";return false;}
+        if(_attachedFiles.Sum(f=>Convert.FromBase64String(f.Data).Length)+data.Length>10*1024*1024){EditorError="Общий размер файлов — не более 10 МБ.";return false;}
+        var extension=System.IO.Path.GetExtension(name).ToLowerInvariant();
+        if(extension is not (".pdf" or ".jpg" or ".jpeg" or ".png")){EditorError="Допустимы PDF, JPG и PNG.";return false;}
+        EditorError="";_attachedFile=data;_attachedFiles.Add(new(name,Convert.ToBase64String(data)));
+        var field=Fields.FirstOrDefault(f=>f.Spec.Key=="file_name");if(field is not null)field.Text=string.Join(", ",_attachedFiles.Select(f=>f.Name));return true;
     }
     [RelayCommand] private async Task FileAsync(string kind) {if(!IsBusy&&FileAction is not null)await FileAction(kind);}
     public Task<bool> ConfirmRestoreAsync()

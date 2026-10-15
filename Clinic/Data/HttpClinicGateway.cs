@@ -16,7 +16,14 @@ namespace Clinic.Data;
 public sealed partial class HttpClinicGateway : IClinicGateway, IDisposable
 {
     private readonly HttpClient _http;
+    public event Action<string>? SessionExpired;
     private ClinicSession? _session;
+    private string? _captchaId, _captchaAnswer;
+    private string? _login;
+    public void SetCaptchaResponse(string? id, string? answer) { _captchaId = id; _captchaAnswer = answer; }
+    public async Task<CaptchaChallenge> RefreshCaptchaAsync(string login) => ParseChallenge(await Request("POST", "auth/captcha", new { login }));
+    private static CaptchaChallenge ParseChallenge(JsonElement value) => new(S(value,"challengeId"), S(value,"imageBase64"), DateTimeOffset.Parse(S(value,"expiresAt"), CultureInfo.InvariantCulture));
+    public async Task SignOutAsync() => _ = await Request("POST", "api/me/logout");
     public IReadOnlyList<string> Permissions { get; private set; }=[];
     public HttpClinicGateway(string address, HttpClient? client=null)
     {
@@ -59,7 +66,9 @@ public sealed partial class HttpClinicGateway : IClinicGateway, IDisposable
             if(!response.IsSuccessStatusCode)
             {
                 var message=response.StatusCode==HttpStatusCode.Unauthorized?"Сессия истекла или неверный пароль. Войдите снова.":"Не удалось выполнить действие. Повторите попытку.";
-                try{using var document=JsonDocument.Parse(text);var error=document.RootElement;var title=S(error,"title");if(title.Length>0)message=title;}catch(JsonException){}
+                try{using var document=JsonDocument.Parse(text);var error=document.RootElement;var title=S(error,"title");if(title.Length>0)message=title; if(path=="auth/login" && P(error,"captcha").ValueKind==JsonValueKind.Object) throw new CaptchaRequiredException(message,ParseChallenge(P(error,"captcha")));}catch(JsonException){}
+                if(response.StatusCode==HttpStatusCode.Unauthorized && !path.StartsWith("auth/",StringComparison.Ordinal))
+                { SessionExpired?.Invoke("Сессия завершена. Войдите снова."); throw new SessionExpiredException("Сессия завершена. Войдите снова."); }
                 throw new InvalidOperationException(message);
             }
             if(text.Length==0)return default;
@@ -81,14 +90,18 @@ public sealed partial class HttpClinicGateway : IClinicGateway, IDisposable
     public async Task<(ClinicSession Session,LiveDashboard Dashboard)?> SignInAsync(string login,string password)
     {
         _session=null;_http.DefaultRequestHeaders.Authorization=null;
-        var result=await Request("POST","auth/login",new{login,password});var account=P(result,"userAccount");
+        var result=await Request("POST","auth/login",new{login,password,challengeId=_captchaId,captchaAnswer=_captchaAnswer});var account=P(result,"userAccount");
         var role=S(account,"roleCode") switch{"patient"=>"Пациент","registrar"=>"Регистратор","doctor"=>"Врач","admin" or "administrator"=>"Администратор",_=>S(account,"roleName")};
         if(role is not ("Пациент" or "Регистратор" or "Врач" or "Администратор"))throw new InvalidOperationException("Эта роль не входит в приложение.");
+        _login = login;
         _http.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",S(result,"token"));
         Permissions=A(P(result,"permissions")).Select(x=>x.ToString()).ToArray();
         _session=new(I(account,"id"),I(account,"employeeId")==0?null:I(account,"employeeId"),I(account,"patientId")==0?null:I(account,"patientId"),S(account,"login"),role);
-        var person=role=="Пациент"?P(await Request("GET","api/my/profile"),"patient"):await Request("GET","api/employees/"+_session.EmployeeId);
-        _session=_session with{Name=FullName(person)};
+        if(role!="Пациент" || Permissions.Contains("own.view"))
+        {
+            var person=role=="Пациент"?P(await Request("GET","api/my/profile"),"patient"):await Request("GET","api/employees/"+_session.EmployeeId);
+            _session=_session with{Name=FullName(person)};
+        }
         return (_session,await DashboardAsync(_session));
     }
     public async Task<bool?> GetUserThemeAsync(int accountId)
@@ -101,24 +114,28 @@ public sealed partial class HttpClinicGateway : IClinicGateway, IDisposable
         if(_session?.AccountId!=accountId)throw new InvalidOperationException("Нет активной сессии.");
         await Request("PUT","api/me/theme",new{theme=dark?"dark":"light"});
     }
-    public async Task ChangePasswordAsync(string oldPassword,string newPassword)=>_ = await Request("PUT","api/me/password",new{oldPassword,newPassword});
+    public async Task ChangePasswordAsync(string oldPassword,string newPassword)
+    {
+        var login = _login ?? throw new InvalidOperationException("Войдите снова.");
+        await Request("PUT","api/me/password",new{oldPassword,newPassword});
+        await SignInAsync(login,newPassword);
+    }
     public async Task<LiveDashboard> DashboardAsync(ClinicSession s)
     {
-        Check(s);var rows=await ListAsync(s,s.Role=="Администратор"?"accounts":"appointments");
+        Check(s);
+        async Task<List<Record>> Rows(string page)=>AccessPresentation.Read(s.Role,page,Permissions)?await ListAsync(s,page):[];
+        var rows=await Rows(s.Role=="Администратор"?"accounts":"appointments");
         DashboardMetric Metric(int count,string name,string detail)=>new(count.ToString(),name,detail,"#E4F2FF");
         DashboardMetric[] metrics;
-        if(s.Role=="Пациент")metrics=[Metric(rows.Count(r=>r.Status=="запланирована"),"Мои записи","Запланированы"),Metric((await ListAsync(s,"visits")).Count,"Посещения","История"),Metric((await ListAsync(s,"referrals")).Count(r=>r.Status=="выполнено"),"Результаты","Готовы")];
-        else if(s.Role=="Администратор")metrics=[Metric(rows.Count(r=>r.Status=="активен"),"Пользователи","Активные"),Metric((await Many("api/roles")).Count(r=>S(r,"code")!="lab"&&S(r,"code")!="lab-technician"),"Роли","В системе"),Metric((await ListAsync(s,"audit")).Count,"Аудит","События")];
-        else metrics=[Metric(rows.Count(r=>r.Values.GetValueOrDefault("work_date")==DateTime.Today.ToString("yyyy-MM-dd")),"Приёмы сегодня","Расписание"),Metric(rows.Count(r=>r.Status=="запланирована"),"Запланированы","Записи"),Metric((await ListAsync(s,"patients")).Count,"Пациенты","Доступные карты")];
+        if(s.Role=="Пациент")metrics=[Metric(rows.Count(r=>r.Status=="запланирована"),"Мои записи","Запланированы"),Metric((await Rows("visits")).Count,"Посещения","История"),Metric((await Rows("referrals")).Count(r=>r.Status=="выполнено"),"Результаты","Готовы")];
+        else if(s.Role=="Администратор")metrics=[Metric(rows.Count(r=>r.Status=="активен"),"Пользователи","Активные"),Metric(Permissions.Contains("role.manage")||Permissions.Contains("account.manage")?(await Many("api/roles")).Count(r=>S(r,"code")!="lab"):0,"Роли","Доступные"),Metric((await Rows("audit")).Count,"Аудит","События")];
+        else metrics=[Metric(rows.Count(r=>r.Values.GetValueOrDefault("work_date")==DateTime.Today.ToString("yyyy-MM-dd")),"Приёмы сегодня","Расписание"),Metric(rows.Count(r=>r.Status=="запланирована"),"Запланированы","Записи"),Metric((await Rows("patients")).Count,"Пациенты","Доступные карты")];
         return new(metrics,rows.Take(5).Select(r=>new DashboardItem(r.Cell1,r.Cell2,r.Cell3,r.Status)).ToArray(),s.Role=="Администратор"?"Пользователи":"Приёмы",Catalog.WorkspaceNote(s.Role));
     }
     private async Task<List<JsonElement>> Patients(ClinicSession s)
     {
-        if(s.Role=="Пациент")return [P(await Request("GET","api/my/profile"),"patient")];
-        if(s.Role!="Врач")return await Many("api/patients?includeInactive=true");
-        var days=await Many("api/doctor/schedule?from="+DateTime.Today.AddYears(-1).ToString("yyyy-MM-dd")+"&to="+DateTime.Today.AddDays(30).ToString("yyyy-MM-dd"));
-        var ids=days.SelectMany(d=>A(P(d,"appointments"))).Select(a=>I(a,"patientId")).Distinct();var result=new List<JsonElement>();
-        foreach(var id in ids)result.Add(P(await Request("GET","api/patients/"+id),"patient"));return result;
+        if(s.Role=="Пациент")return Permissions.Contains("own.view")?[P(await Request("GET","api/my/profile"),"patient")]:[];
+        return Permissions.Contains("patient.view")?await Many("api/patients?includeInactive=true"):[];
     }
     private async Task<List<JsonElement>> Visits(ClinicSession s)
     {
@@ -128,7 +145,7 @@ public sealed partial class HttpClinicGateway : IClinicGateway, IDisposable
     }
     public async Task<List<Record>> ListAsync(ClinicSession s,string page,DateTime? from=null,DateTime? to=null)
     {
-        Check(s);if(!Catalog.Sections(s.Role).Any(p=>p.Key==page))throw new InvalidOperationException("Раздел недоступен.");
+        Check(s);if(!(page=="roles"&&Permissions.Contains("role.manage"))&&!Catalog.Sections(s.Role).Any(p=>p.Key==page))throw new InvalidOperationException("Раздел недоступен.");
         var rows=new List<Record>();
         switch(page)
         {
@@ -165,8 +182,8 @@ public sealed partial class HttpClinicGateway : IClinicGateway, IDisposable
                 {
                     var patient=I(visit,"patientId");var name=names.GetValueOrDefault(patient,S(visit,"patientName"));
                     if(page=="visits")rows.Add(Row(visit,DisplayDate(S(visit,"visitedAt")),name,S(visit,"doctorName"),S(visit,"diagnosisCode"),B(visit,"isClosed")?"закрыт":"в работе","Жалобы: "+S(visit,"complaints")+"\nАнамнез: "+S(visit,"anamnesis")+"\nОсмотр: "+S(visit,"objectiveStatus")+"\nДиагноз: "+S(visit,"diagnosisName")+"\nРекомендации: "+S(visit,"recommendations")));
-                    if(page=="prescriptions")foreach(var v in A(P(visit,"prescriptions")))rows.Add(Row(v,S(v,"drugName"),name,S(v,"dosage"),S(visit,"doctorName"),B(v,"isRecipe")?"рецепт":"назначение",S(v,"instruction"),new(){["patient_id"]=patient.ToString(),["can_edit"]="false"}));
-                    if(page=="rendered")foreach(var v in await Many("api/visits/"+I(visit,"id")+"/services"))rows.Add(Row(v,S(v,"serviceName"),name,DisplayDate(S(v,"renderedAt")),Money(v,"sum"),I(v,"invoiceId")==0?"без счёта":"счёт №"+S(v,"invoiceId"),"Количество: "+S(v,"quantity"),new(){["patient_id"]=patient.ToString(),["can_edit"]="false"}));
+                    if(page=="prescriptions")foreach(var v in A(P(visit,"prescriptions")))rows.Add(Row(v,S(v,"drugName"),name,S(v,"dosage"),S(visit,"doctorName"),B(v,"isRecipe")?"рецепт":"назначение",S(v,"instruction"),new(){["patient_id"]=patient.ToString(),["can_edit"]=(!B(visit,"isClosed")).ToString().ToLowerInvariant(),["can_delete"]=(!B(visit,"isClosed")).ToString().ToLowerInvariant()}));
+                    if(page=="rendered")foreach(var v in await Many("api/visits/"+I(visit,"id")+"/services"))rows.Add(Row(v,S(v,"serviceName"),name,DisplayDate(S(v,"renderedAt")),Money(v,"sum"),I(v,"invoiceId")==0?"без счёта":"счёт №"+S(v,"invoiceId"),"Количество: "+S(v,"quantity"),new(){["patient_id"]=patient.ToString(),["can_edit"]="true"}));
                 }break;
             case "referrals":
                 foreach(var v in await Many(s.Role=="Пациент"?"api/my/referrals":"api/referrals?status=all"))
@@ -184,6 +201,8 @@ public sealed partial class HttpClinicGateway : IClinicGateway, IDisposable
                 foreach(var v in await Many(s.Role=="Пациент"?"api/my/documents":"api/documents"))rows.Add(Row(v,S(v,"typeName")+" · "+S(v,"number"),S(v,"patientName"),DisplayDate(S(v,"issuedAt")),"", "оформлен",S(v,"content"),new(){["created_at"]=S(v,"issuedAt")}));break;
             case "notifications":
                 foreach(var v in await Many("api/my/notifications"))rows.Add(Row(v,"Уведомление",DisplayDate(S(v,"createdAt")),S(v,"message"),"",B(v,"isRead")?"прочитано":"новое",S(v,"message")));break;
+            case "roles":
+                foreach(var role in await Many("api/roles"))if(S(role,"code")!="lab")rows.Add(Row(role,S(role,"code"),S(role,"name"),string.Join(", ",A(P(role,"permissions")).Select(p=>Catalog.PermissionName(p.ToString()))),"","роль"));break;
             case "accounts":
                 foreach(var v in await Many("api/accounts"))if(S(v,"roleName")!="Лаборант")rows.Add(Row(v,S(v,"login"),S(v,"ownerName"),S(v,"roleName"),DisplayDate(S(v,"lastLogin")),B(v,"isActive")?"активен":"заблокирован", "Роль: "+S(v,"roleName")));break;
             case "employees":
@@ -200,7 +219,7 @@ public sealed partial class HttpClinicGateway : IClinicGateway, IDisposable
                 {
                     var c1=kind switch{"attendance"=>"Посещаемость: "+DisplayDate(S(v,"date")),"load"=>"Загрузка: "+S(v,"doctorName"),"morbidity"=>"Диагноз: "+S(v,"diagnosisCode"),_=>"Выручка: "+DisplayDate(S(v,"date"))};
                     var c2=kind switch{"attendance"=>S(v,"total"),"load"=>S(v,"loadPercent")+" %","morbidity"=>S(v,"visits"),_=>Money(v,"amount")};
-                    rows.Add(Row(v,c1,c2,DisplayDate((from??DateTime.Today.AddDays(-30)).ToString("yyyy-MM-dd"))+" — "+DisplayDate((to??DateTime.Today).ToString("yyyy-MM-dd")),"","отчёт",v.ToString(),new(){["id"]=(++id).ToString()}));
+                    rows.Add(Row(v,c1,c2,DisplayDate((from??DateTime.Today.AddDays(-30)).ToString("yyyy-MM-dd"))+" — "+DisplayDate((to??DateTime.Today).ToString("yyyy-MM-dd")),"","отчёт",v.ToString(),new(){["id"]=(++id).ToString(),["report_kind"]=kind}));
                 }break;
         }
         return rows;

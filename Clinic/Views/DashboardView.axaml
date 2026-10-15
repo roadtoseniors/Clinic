@@ -35,7 +35,7 @@
    <ScrollViewer Grid.Row="2" IsVisible="{Binding IsHome}" VerticalScrollBarVisibility="Auto">
     <StackPanel Spacing="22">
      <Border Classes="welcome" Background="{DynamicResource BrandBackground}" CornerRadius="14" Padding="26"><StackPanel Spacing="9"><TextBlock Text="{Binding Owner.DisplayName, StringFormat='Добро пожаловать, {0}!'}" Foreground="White" FontWeight="Bold" FontSize="23" TextWrapping="Wrap"/><TextBlock Text="{Binding Owner.Subtitle}" Foreground="{DynamicResource BrandMuted}" FontSize="13" TextWrapping="Wrap"/></StackPanel></Border>
-     <ItemsControl ItemsSource="{Binding Metrics}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate x:DataType="demo:DashboardMetric"><Border Classes="card" Margin="0,0,14,0" Padding="20"><StackPanel Spacing="8"><TextBlock Text="{Binding Label}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource MutedText}"/><TextBlock Text="{Binding Value}" FontSize="32" FontWeight="Bold" Foreground="{DynamicResource AccentText}"/><TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource FaintText}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+     <ItemsControl ItemsSource="{Binding Metrics}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate x:DataType="demo:DashboardMetric"><Border Classes="card" Margin="0,0,14,0" Padding="20"><StackPanel Spacing="8"><TextBlock ToolTip.Tip="{Binding Detail}" Text="{Binding Label}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource MutedText}"/><TextBlock Text="{Binding Value}" FontSize="32" FontWeight="Bold" Foreground="{DynamicResource AccentText}"/><TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource FaintText}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
      <Grid ColumnDefinitions="2*,*" ColumnSpacing="18">
       <Border Classes="card" Padding="22"><StackPanel Spacing="16"><TextBlock Text="{Binding EventTitle}" FontSize="17" FontWeight="Bold"/><ItemsControl ItemsSource="{Binding Events}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="demo:DashboardItem"><Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,14"><Grid ColumnDefinitions="80,*,Auto" ColumnSpacing="12"><TextBlock Text="{Binding Time}" Foreground="{DynamicResource MutedText}" FontSize="11" TextWrapping="Wrap"/><StackPanel Grid.Column="1" Spacing="5"><TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/><TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/></StackPanel><Border Grid.Column="2" Classes="badge" Classes.success="{Binding IsSuccessStatus}" Classes.error="{Binding IsErrorStatus}" Classes.warning="{Binding IsWarningStatus}" Classes.neutral="{Binding IsNeutralStatus}" Padding="8,4" CornerRadius="6" VerticalAlignment="Top"><TextBlock Text="{Binding Badge}" FontSize="10"/></Border></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Text="На сегодня событий нет" IsVisible="{Binding !HasEvents}" Foreground="{DynamicResource MutedText}" FontSize="12"/></StackPanel></Border>
       <Border Grid.Column="1" Classes="card" Padding="22"><StackPanel Spacing="14"><TextBlock Text="Быстрый доступ" FontWeight="Bold" FontSize="16"/><TextBlock Text="{Binding Note}" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap" LineHeight="21"/><ItemsControl ItemsSource="{Binding QuickLinks}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="w:Section"><Button Content="{Binding Title}" Command="{ReflectionBinding $parent[UserControl].DataContext.NavigateCommand}" CommandParameter="{Binding Key}" Classes="quiet" HorizontalAlignment="Stretch" Margin="0,0,0,8"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></Border>
@@ -43,13 +43,31 @@
     </StackPanel>
    </ScrollViewer>
    <Grid Grid.Row="2" RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsTable}">
-    <Grid ColumnDefinitions="2*,*,*,Auto" ColumnSpacing="12" Margin="0,0,0,14">
+    <Grid ColumnDefinitions="2*,*,*,Auto,Auto" ColumnSpacing="12" Margin="0,0,0,14">
      <TextBox Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Поиск по имени, полису, карте или названию…"/>
      <ComboBox Grid.Column="1" ItemsSource="{Binding Statuses}" SelectedItem="{Binding StatusFilter}" HorizontalAlignment="Stretch"/>
      <ComboBox Grid.Column="2" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SortOrder}" ToolTip.Tip="Порядок записей" HorizontalAlignment="Stretch"/>
-     <Button Grid.Column="3" Content="Экспорт" Classes="quiet" Command="{Binding FileCommand}" CommandParameter="export_all"/>
+     <Button Grid.Column="3" Content="{Binding ReportDisplayLabel}" IsVisible="{Binding IsReports}" Command="{Binding ToggleReportDisplayCommand}" Classes="quiet"/>
+     <Button Grid.Column="4" Content="Экспорт" Classes="quiet" Command="{Binding FileCommand}" CommandParameter="export_all"/>
     </Grid>
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16">
+    <ScrollViewer Grid.Row="1" IsVisible="{Binding ShowReportCharts}" VerticalScrollBarVisibility="Auto" Margin="0,0,0,14">
+     <ItemsControl ItemsSource="{Binding ReportCharts}">
+      <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate><DataTemplate x:DataType="w:ReportChart">
+       <Border Classes="card" Padding="18" Margin="0,0,12,12"><StackPanel Spacing="12">
+        <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Bold"/>
+        <TextBlock Text="Нет данных за выбранный период" IsVisible="{Binding !HasPoints}" FontSize="12" Foreground="{DynamicResource MutedText}"/>
+        <ItemsControl ItemsSource="{Binding Points}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="w:ChartPoint">
+         <StackPanel Spacing="4" Margin="0,0,0,10" ToolTip.Tip="{Binding Display}">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" FontSize="11"/><TextBlock Grid.Column="1" Text="{Binding Display}" FontSize="11" FontWeight="SemiBold"/></Grid>
+          <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" Height="10" Foreground="{DynamicResource AccentText}"/>
+         </StackPanel>
+        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+       </StackPanel></Border>
+      </DataTemplate></ItemsControl.ItemTemplate>
+     </ItemsControl>
+    </ScrollViewer>
+    <Grid Grid.Row="1" IsVisible="{Binding ShowRecords}" ColumnDefinitions="*,Auto" ColumnSpacing="16">
      <Border Classes="card">
       <Grid RowDefinitions="Auto,*,Auto">
        <Grid ColumnDefinitions="1.15*,1.3*,*,*,100" ColumnSpacing="10" Margin="16,14"><TextBlock Text="{Binding Header1}" Classes="tableHeader"/><TextBlock Grid.Column="1" Text="{Binding Header2}" Classes="tableHeader"/><TextBlock Grid.Column="2" Text="{Binding Header3}" Classes="tableHeader"/><TextBlock Grid.Column="3" Text="{Binding Header4}" Classes="tableHeader"/><TextBlock Grid.Column="4" Text="Статус" Classes="tableHeader"/></Grid>
@@ -74,7 +92,7 @@
   <Border Classes="card" Width="620" MaxHeight="720" Margin="24" Padding="26" HorizontalAlignment="Center" VerticalAlignment="Center">
    <Grid RowDefinitions="Auto,*,Auto">
     <StackPanel Spacing="6" Margin="0,0,0,20"><TextBlock Text="{Binding EditorTitle}" FontSize="23" FontWeight="Bold"/><TextBlock Text="* Обязательные поля" FontSize="11" Foreground="{DynamicResource MutedText}"/></StackPanel>
-    <ScrollViewer Grid.Row="1" IsEnabled="{Binding !IsBusy}" VerticalScrollBarVisibility="Auto"><StackPanel Spacing="14"><ItemsControl ItemsSource="{Binding Fields}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:EditorField"><StackPanel Spacing="7" Margin="0,0,12,16"><TextBlock Text="{Binding Label}" FontWeight="SemiBold" FontSize="12"/><CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/><TextBox IsVisible="{Binding IsText}" IsReadOnly="{Binding IsReadOnly}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" AcceptsReturn="{Binding IsMultiline}" TextWrapping="Wrap" MinHeight="40" MaxHeight="180" PlaceholderText="{Binding Placeholder}"/><ComboBox PlaceholderText="Выберите…" IsVisible="{Binding IsChoice}" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><Button IsVisible="{Binding CanAttach}" Content="Прикрепить файл (до 10 МБ)" Classes="quiet" Command="{Binding FileCommand}" CommandParameter="attach"/><ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="True" Height="3"/><TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap"/></StackPanel></ScrollViewer>
+    <ScrollViewer Grid.Row="1" IsEnabled="{Binding !IsBusy}" VerticalScrollBarVisibility="Auto"><StackPanel Spacing="14"><ItemsControl ItemsSource="{Binding Fields}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:EditorField"><StackPanel Spacing="7" Margin="0,0,12,16"><TextBlock ToolTip.Tip="{Binding Hint}" Text="{Binding Label}" FontWeight="SemiBold" FontSize="12"/><CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/><TextBox IsVisible="{Binding IsText}" IsReadOnly="{Binding IsReadOnly}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" AcceptsReturn="{Binding IsMultiline}" TextWrapping="Wrap" MinHeight="40" MaxHeight="180" PlaceholderText="{Binding Placeholder}" ToolTip.Tip="{Binding Hint}"/><ComboBox PlaceholderText="Выберите…" IsVisible="{Binding IsChoice}" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><Button IsVisible="{Binding CanAttach}" Content="Прикрепить файл (до 10 МБ)" Classes="quiet" Command="{Binding FileCommand}" CommandParameter="attach"/><ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="True" Height="3"/><TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap"/></StackPanel></ScrollViewer>
     <StackPanel Grid.Row="2" IsEnabled="{Binding !IsBusy}" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" Margin="0,20,0,0"><Button Content="Отмена" Classes="quiet" Command="{Binding CloseEditorCommand}"/><Button Content="Сохранить" Classes="primary" Command="{Binding SaveCommand}"/></StackPanel>
    </Grid>
   </Border>
@@ -89,6 +107,20 @@
      <Button Content="Отмена" Classes="quiet" Command="{Binding CancelRestoreCommand}"/>
      <Button Content="Восстановить" Classes="primary" IsEnabled="{Binding CanConfirmRestore}" Command="{Binding ConfirmRestoreCommand}"/>
     </StackPanel>
+   </StackPanel>
+  </Border>
+ </Border>
+ <Border Background="#99000000" IsVisible="{Binding IsAttachmentPickerOpen}">
+  <Border Classes="card" Width="560" MaxHeight="550" Margin="24" Padding="26" VerticalAlignment="Center" HorizontalAlignment="Center">
+   <StackPanel Spacing="18"><TextBlock Text="Файлы результата" FontSize="23" FontWeight="Bold"/>
+    <ScrollViewer MaxHeight="330"><ItemsControl ItemsSource="{Binding AttachmentChoices}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="w:AttachmentInfo">
+     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,0,0,12">
+      <StackPanel><TextBlock Text="{Binding Name}" TextWrapping="Wrap"/><TextBlock Text="{Binding SizeLabel}" FontSize="11" Foreground="{DynamicResource MutedText}"/></StackPanel>
+      <Button Grid.Column="1" Content="Скачать" Classes="quiet" Command="{ReflectionBinding $parent[UserControl].DataContext.ChooseAttachmentCommand}" CommandParameter="{Binding}"/>
+      <Button Grid.Column="2" Content="Удалить" Classes="quiet" IsVisible="{ReflectionBinding $parent[UserControl].DataContext.CanDeleteAttachment}" Command="{ReflectionBinding $parent[UserControl].DataContext.DeleteAttachmentCommand}" CommandParameter="{Binding}"/>
+     </Grid>
+    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+    <Button Content="Закрыть" Classes="quiet" HorizontalAlignment="Right" Command="{Binding CancelAttachmentChoiceCommand}"/>
    </StackPanel>
   </Border>
  </Border>

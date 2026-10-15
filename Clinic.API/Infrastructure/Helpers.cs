@@ -52,14 +52,19 @@ public static class Passwords
         }
     }
 
-    public static string? Validate(string? password) =>
-        password is null || password.Length < MinLength ? $"Пароль должен быть не короче {MinLength} символов"
-        : password.Length > 100 ? "Пароль слишком длинный"
-        : null;
+    public static string? Validate(string? password) => string.IsNullOrEmpty(password)
+        ? "Введите пароль" : Clinic.Workspace.InputRules.Error("password", password);
+
 }
 
 public static partial class Rules
 {
+    public static string? ValidateContacts(string? middleName, string? phone, string? snils, string? address) =>
+        Clinic.Workspace.InputRules.Error("middle_name", middleName)
+        ?? Clinic.Workspace.InputRules.Error("phone", phone)
+        ?? Clinic.Workspace.InputRules.Error("snils", snils)
+        ?? Clinic.Workspace.InputRules.Error("address", address);
+
     [GeneratedRegex(@"^[A-Za-z0-9._-]{3,50}$")]
     private static partial Regex LoginRegex();
 
@@ -80,6 +85,8 @@ public static partial class Rules
     {
         if (Text.Clean(lastName) is null || Text.Clean(firstName) is null)
             return "Фамилия и имя обязательны";
+        if (Clinic.Workspace.InputRules.Error("last_name", lastName) is string lastError) return lastError;
+        if (Clinic.Workspace.InputRules.Error("first_name", firstName) is string firstError) return firstError;
         if (birthDate > Clock.Today || birthDate < new DateOnly(1900, 1, 1))
             return "Неверная дата рождения";
         if (NormalizeGender(gender) is not ('М' or 'Ж'))

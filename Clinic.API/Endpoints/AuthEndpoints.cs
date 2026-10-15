@@ -12,17 +12,26 @@ public static class AuthEndpoints
     {
         var auth = app.MapGroup("/auth");
         auth.MapPost("/login", Login);
+        auth.MapPost("/captcha", (CaptchaRequest dto, HttpContext context, LoginProtection protection) =>
+        {
+            if (string.IsNullOrWhiteSpace(dto.Login)) return Err.BadRequest("Укажите логин");
+            var challenge = protection.Refresh(LoginProtection.Key(dto.Login, context.Connection.RemoteIpAddress?.ToString()));
+            return challenge is null ? Err.BadRequest("Капча пока не требуется") : Results.Ok(challenge);
+        });
         auth.MapGet("/insurancecompanies", async (MyDbContext db,CancellationToken ct) => Results.Ok(await db.InsuranceCompanies.AsNoTracking().Where(c=>c.IsActive).OrderBy(c=>c.Name).Select(c=>new NamedDto(c.Id,c.Name)).ToListAsync(ct)));
         auth.MapPost("/register", Register);
     }
 
     // POST /auth/login
-    private static async Task<IResult> Login(AuthData data, MyDbContext db, CancellationToken ct)
+    private static async Task<IResult> Login(AuthData data, HttpContext context, LoginProtection protection, MyDbContext db, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(data.Login) || string.IsNullOrWhiteSpace(data.Password))
             return Err.BadRequest("Логин и пароль обязательны");
 
         var login = data.Login.Trim();
+        var key = LoginProtection.Key(login, context.Connection.RemoteIpAddress?.ToString());
+        if (!protection.Accepts(key, data.ChallengeId, data.CaptchaAnswer))
+            return Results.Json(new { title = "Введите символы с картинки", captchaRequired = true, captcha = protection.Refresh(key) }, statusCode: 401);
         var account = await db.Accounts.AsNoTracking()
             .Where(a => a.Login == login)
             .Select(a => new { a.Id, a.PasswordHash, a.IsActive })
@@ -30,11 +39,15 @@ public static class AuthEndpoints
 
         // Одинаковый ответ для «нет такого логина» и «неверный пароль»: так нельзя подбирать логины
         if (account is null || !Passwords.Verify(data.Password, account.PasswordHash))
-            return Err.Unauthorized("Неверный логин или пароль");
+        {
+            var challenge = protection.Failed(key);
+            return Results.Json(new { title = "Неверный логин или пароль", captchaRequired = challenge is not null, captcha = challenge }, statusCode: 401);
+        }
 
         if (!account.IsActive)
             return Err.Forbidden("Аккаунт заблокирован. Обратитесь в регистратуру");
 
+        protection.Reset(key);
         return Results.Ok(await TokenIssuer.IssueAsync(db, account.Id, ct));
     }
 
@@ -44,6 +57,8 @@ public static class AuthEndpoints
         var error = Rules.ValidateLogin(dto.Login)
                     ?? Passwords.Validate(dto.Password)
                     ?? Rules.ValidatePerson(dto.LastName, dto.FirstName, dto.BirthDate, dto.Gender)
+                    ?? Rules.ValidateContacts(dto.MiddleName, dto.Phone, dto.Snils, dto.Address)
+                    ?? Clinic.Workspace.InputRules.Error("oms_policy", dto.OmsNumber)
                     ?? (Text.Clean(dto.OmsNumber) is null ? "Укажите номер полиса ОМС" : null);
         if (error is not null)
             return Err.BadRequest(error);
@@ -128,7 +143,10 @@ public static class TokenIssuer
         {
             new(ClaimTypes.NameIdentifier, account.Id.ToString()),
             new(ClaimTypes.Name, account.Login),
-            new(ClaimTypes.Role, account.RoleCode)
+            new(ClaimTypes.Role, account.RoleCode),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new("serverEpoch", await RuntimeSchema.EpochAsync(db,ct)),
+            new("sessionStamp", SessionTokens.Stamp(await db.Accounts.Where(a => a.Id == accountId).Select(a => a.PasswordHash).SingleAsync(ct), account.RoleId, permissions))
         };
         if (account.PatientId is int patientId)
             claims.Add(new Claim("patientId", patientId.ToString()));

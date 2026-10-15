@@ -15,19 +15,8 @@ public partial class MainWindow : Window
     private async void ProtectUnsavedChanges(object? sender, WindowClosingEventArgs e)
     {
         if (_closeApproved || DataContext is not MainViewModel model) return;
-        if (model.HasRegistrationChanges)
-        {
-            e.Cancel = true;
-            if(model.IsBusy) return;
-            if(!await model.ConfirmRegistrationDiscardAsync()) return;
-        }
-        else if (model.Workspace is { HasUnsavedChanges: true } workspace)
-        {
-            e.Cancel = true;
-            if(workspace.IsBusy) return;
-            if(!await workspace.ConfirmDiscardAsync()) return;
-        }
-        else return;
+        e.Cancel = true;
+        if (!await model.ConfirmWindowCloseAsync()) return;
         _closeApproved = true;
         Close();
     }

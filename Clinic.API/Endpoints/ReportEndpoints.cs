@@ -75,7 +75,7 @@ public static class ReportEndpoints
         var toDt = end.AddDays(1).ToDateTime(TimeOnly.MinValue);
 
         var visits = await db.Visits.AsNoTracking()
-            .Where(v => v.VisitedAt >= fromDt && v.VisitedAt < toDt && v.DiagnosisCode != null)
+            .Where(v => v.VisitedAt >= fromDt && v.VisitedAt < toDt && v.IsClosed && v.DiagnosisCode != null)
             .Select(v => new { Code = v.DiagnosisCode!, v.Appointment.PatientId })
             .ToListAsync(ct);
 

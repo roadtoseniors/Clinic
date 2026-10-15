@@ -7,6 +7,7 @@ public static class BillingEndpoints
     {
         api.MapGet("/visits/{id:int}/services", VisitServices).RequirePermission(Perm.ServiceRender, Perm.InvoiceManage);
         api.MapPost("/visits/{id:int}/services", AddService).RequirePermission(Perm.ServiceRender);
+        api.MapPut("/visit-services/{id:int}", UpdateService).RequirePermission(Perm.ServiceRender);
         api.MapDelete("/visit-services/{id:int}", DeleteService).RequirePermission(Perm.ServiceRender);
         api.MapGet("/patients/{id:int}/unbilled-services", Unbilled).RequirePermission(Perm.InvoiceManage);
 
@@ -51,6 +52,19 @@ public static class BillingEndpoints
     }
 
     // Удалить можно только услугу, которая ещё не попала в счёт
+    private static async Task<IResult> UpdateService(int id, VisitServiceInput dto, MyDbContext db, CancellationToken ct)
+    {
+        var line=await db.VisitServices.FirstOrDefaultAsync(v=>v.Id==id,ct);
+        if(line is null)return Err.NotFound("Начисление не найдено");
+        if(line.InvoiceId is not null)return Err.Conflict("Услуга уже включена в счёт");
+        if(dto.Quantity<=0)return Err.BadRequest("Количество должно быть больше нуля");
+        var service=await db.Services.FirstOrDefaultAsync(s=>s.Id==dto.ServiceId&&s.IsActive,ct);
+        if(service is null)return Err.BadRequest("Услуга не найдена или архивирована");
+        if(line.ServiceId!=dto.ServiceId)line.Price=service.Price;
+        line.ServiceId=dto.ServiceId;line.Quantity=dto.Quantity;await db.SaveChangesAsync(ct);
+        return Results.Ok(await db.VisitServices.Where(v=>v.Id==id).Select(Projections.VisitServices).SingleAsync(ct));
+    }
+
     private static async Task<IResult> DeleteService(int id, MyDbContext db, CancellationToken ct)
     {
         var line = await db.VisitServices.AsNoTracking().Where(vs => vs.Id == id).Select(vs => new { vs.InvoiceId }).FirstOrDefaultAsync(ct);
@@ -135,6 +149,7 @@ public static class BillingEndpoints
             Status = InvoiceStatus.Unpaid
         };
         db.Invoices.Add(invoice);
+        db.Notifications.Add(new Notification {PatientId=dto.PatientId,CreatedAt=Clock.Now,Message="Выставлен счёт на оплату услуг. Откройте раздел «Мои счета».",IsRead=false});
         foreach (var line in lines) line.Invoice = invoice;
         await db.SaveChangesAsync(ct);   // счёт и привязка услуг — одна транзакция
 
@@ -170,6 +185,7 @@ public static class BillingEndpoints
         invoice.MethodId = method.Id;
         invoice.PolicyId = method.IsInsurance ? dto.PolicyId : null;
         invoice.PaidAt = Clock.Now;
+        db.Notifications.Add(new Notification {PatientId=invoice.PatientId,CreatedAt=Clock.Now,Message="Счёт №"+id+" оплачен.",IsRead=false});
         await db.SaveChangesAsync(ct);
 
         return Results.Ok(await LoadDetails(db, id, ct));
@@ -186,6 +202,7 @@ public static class BillingEndpoints
         await db.VisitServices.Where(vs => vs.InvoiceId == id)
             .ExecuteUpdateAsync(s => s.SetProperty(vs => vs.InvoiceId, (int?)null), ct);
         invoice.Status = InvoiceStatus.Cancelled;
+        db.Notifications.Add(new Notification {PatientId=invoice.PatientId,CreatedAt=Clock.Now,Message="Счёт №"+id+" отменён.",IsRead=false});
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 

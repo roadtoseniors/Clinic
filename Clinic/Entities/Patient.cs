@@ -41,7 +41,7 @@ public partial class Patient
 
     public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 
-    public virtual PatientAttachment? PatientAttachment { get; set; }
+    public virtual ICollection<PatientAttachment> PatientAttachments { get; set; } = new List<PatientAttachment>();
 
     public virtual ICollection<PatientPolicy> PatientPolicies { get; set; } = new List<PatientPolicy>();
 }

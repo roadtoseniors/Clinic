@@ -9,11 +9,11 @@ using System.Text.Json;
 
 public static class ApiFixture
 {
-    public static async Task PrepareTodayAsync()
+    public static async Task PrepareTodayAsync(string? fixtureConnection=null)
     {
         var path=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../Clinic.API/api.local.json"));
-        using var settings=JsonDocument.Parse(await File.ReadAllTextAsync(path));var cs=settings.RootElement.GetProperty("ConnectionStrings").GetProperty("Clinic").GetString()!;
-        if(new NpgsqlConnectionStringBuilder(cs).Database!="clinic_api_integration_test")throw new InvalidOperationException("Fixture preparation requires the isolated API test database.");
+        using var settings=JsonDocument.Parse(await File.ReadAllTextAsync(path));var cs=fixtureConnection??settings.RootElement.GetProperty("ConnectionStrings").GetProperty("Clinic").GetString()!;
+        if(new NpgsqlConnectionStringBuilder(cs).Database is not "clinic_api_integration_test" && !(fixtureConnection is not null && new NpgsqlConnectionStringBuilder(cs).Database!.StartsWith("clinic_functional_",StringComparison.Ordinal)))throw new InvalidOperationException("Fixture preparation requires the isolated API test database.");
         await using var db=new MyDbContext(new DbContextOptionsBuilder<MyDbContext>().UseNpgsql(cs).Options);
         var doctor=await db.Accounts.Where(a=>a.Login=="sokolov").Select(a=>a.EmployeeId!.Value).SingleAsync();
         var patient=await db.Accounts.Where(a=>a.Login=="kirillov").Select(a=>a.PatientId!.Value).SingleAsync();
@@ -39,7 +39,7 @@ public static class ApiFixture
         {
             await c.OpenAsync();await using var check=new NpgsqlCommand("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r'",c);
             if(Convert.ToInt64(await check.ExecuteScalarAsync())>0)throw new InvalidOperationException("Тестовая база уже заполнена. Данные сохранены; повторная инициализация отменена.");
-            
+
         }
         await db.Database.ExecuteSqlRawAsync(db.Database.GenerateCreateScript().Replace("CREATE SEQUENCE ","CREATE SEQUENCE IF NOT EXISTS "));
         var permissions=typeof(Perm).GetFields(BindingFlags.Public|BindingFlags.Static).Where(f=>f.IsLiteral&&f.Name!="ClaimType").Select(f=>new Permission{Code=(string)f.GetRawConstantValue()!,Name=f.Name}).ToList();
@@ -64,7 +64,7 @@ public static class ApiFixture
         var today=new Schedule{Employee=dr,Room=room,WorkDate=DateOnly.FromDateTime(DateTime.Today),StartTime=new(9,0),EndTime=new(17,0),SlotMinutes=30};
         db.Add(today);db.Add(new Appointment{Schedule=today,Patient=p1,StartTime=new(9,0),Status="запланирована",Source="регистратура",CreatedAt=DateTime.Now});
         for(var i=1;i<=14;i++)db.Add(new Schedule{Employee=dr,Room=room,WorkDate=DateOnly.FromDateTime(DateTime.Today.AddDays(i)),StartTime=new(9,0),EndTime=new(17,0),SlotMinutes=30});
-        db.Add(new Notification{Patient=p1,CreatedAt=DateTime.Now,Message="Добро пожаловать в тестовую базу API",IsRead=false});
+        db.Add(new Notification{Patient=p1,CreatedAt=DateTime.Now,Message="Добро пожаловать в личный кабинет поликлиники",IsRead=false});
         await db.SaveChangesAsync();
         await db.Database.ExecuteSqlRawAsync("""
             CREATE FUNCTION notify_appointment() RETURNS trigger LANGUAGE plpgsql AS $$

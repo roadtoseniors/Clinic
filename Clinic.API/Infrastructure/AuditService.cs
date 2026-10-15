@@ -2,7 +2,7 @@ namespace Clinic.API;
 
 // Журнал обращений к медицинским данным (таблица audit).
 // Вызывается ПОСЛЕ успешного сохранения основной операции.
-public sealed class AuditService(MyDbContext db, ILogger<AuditService> logger)
+public sealed class AuditService(MyDbContext db, ILogger<AuditService> logger, IHttpContextAccessor accessor)
 {
     public async Task LogAsync(ClaimsPrincipal user, string action, string table, int? recordId, int? patientId, CancellationToken ct)
     {
@@ -22,6 +22,7 @@ public sealed class AuditService(MyDbContext db, ILogger<AuditService> logger)
         try
         {
             await db.SaveChangesAsync(ct);
+            if(accessor.HttpContext is { } context)context.Items["clinic.auditWritten"]=true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

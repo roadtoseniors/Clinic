@@ -16,6 +16,8 @@ public partial class MyDbContext : DbContext
     {
     }
 
+    public DbSet<RevokedSession> RevokedSessions => Set<RevokedSession>();
+
     public virtual DbSet<Account> Accounts { get; set; }
 
     public virtual DbSet<Appointment> Appointments { get; set; }
@@ -97,6 +99,12 @@ public partial class MyDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<RevokedSession>(e => {
+            e.ToTable("revoked_session"); e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasMaxLength(32);
+            e.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+        });
+
         modelBuilder.Entity<Account>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("account_pkey");
@@ -549,8 +557,8 @@ public partial class MyDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("patient_attachment_employee_id_fkey");
 
-            entity.HasOne(d => d.Patient).WithOne(p => p.PatientAttachment)
-                .HasForeignKey<PatientAttachment>(d => d.PatientId)
+            entity.HasOne(d => d.Patient).WithMany(p => p.PatientAttachments)
+                .HasForeignKey(d => d.PatientId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("patient_attachment_patient_id_fkey");
         });

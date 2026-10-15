@@ -15,9 +15,11 @@ public static class VisitEndpoints
         api.MapPost("/visits/{id:int}/close", CloseVisit).RequirePermission(Perm.VisitManage);
 
         api.MapPost("/visits/{id:int}/prescriptions", AddPrescription).RequirePermission(Perm.VisitManage);
+        api.MapPut("/prescriptions/{id:int}", UpdatePrescription).RequirePermission(Perm.VisitManage);
         api.MapDelete("/prescriptions/{id:int}", DeletePrescription).RequirePermission(Perm.VisitManage);
 
         api.MapPost("/visits/{id:int}/referrals", AddReferral).RequirePermission(Perm.ReferralIssue);
+        api.MapDelete("/referrals/{id:int}", DeleteReferral).RequirePermission(Perm.ReferralIssue);
         api.MapPost("/referrals/{id:int}/cancel", CancelReferral).RequirePermission(Perm.ReferralIssue);
     }
 
@@ -162,6 +164,7 @@ public static class VisitEndpoints
         if (error is not null) return error;
         if (!await db.Drugs.AnyAsync(d => d.Id == dto.DrugId, ct)) return Err.BadRequest("Препарат не найден");
 
+        if(string.IsNullOrWhiteSpace(dto.Dosage)||string.IsNullOrWhiteSpace(dto.Instruction)||dto.Dosage.Length>100)return Err.BadRequest("Укажите дозировку до 100 символов и инструкцию");
         var prescription = new Prescription
         {
             VisitId = id,
@@ -176,6 +179,20 @@ public static class VisitEndpoints
 
         var result = await db.Prescriptions.AsNoTracking().Where(p => p.Id == prescription.Id).Select(Projections.Prescriptions).FirstAsync(ct);
         return Results.Created($"/api/prescriptions/{prescription.Id}", result);
+    }
+
+    private static async Task<IResult> UpdatePrescription(int id, PrescriptionInput dto, ClaimsPrincipal user, MyDbContext db, AuditService audit, CancellationToken ct)
+    {
+        var prescription=await db.Prescriptions.FirstOrDefaultAsync(p=>p.Id==id,ct);
+        if(prescription is null)return Err.NotFound("Назначение не найдено");
+        var (error,visit)=await LoadOwnOpenVisitAsync(prescription.VisitId,user,db,ct);
+        if(error is not null)return error;
+        if(!await db.Drugs.AnyAsync(d=>d.Id==dto.DrugId,ct))return Err.BadRequest("Препарат не найден");
+        if(string.IsNullOrWhiteSpace(dto.Dosage)||string.IsNullOrWhiteSpace(dto.Instruction))return Err.BadRequest("Укажите дозировку и инструкцию");
+        if(dto.Dosage.Length>100)return Err.BadRequest("Дозировка — не более 100 символов");
+        prescription.DrugId=dto.DrugId;prescription.Dosage=dto.Dosage.Trim();prescription.Instruction=dto.Instruction.Trim();prescription.IsRecipe=dto.IsRecipe;
+        await db.SaveChangesAsync(ct);await audit.LogAsync(user,AuditAction.Update,"prescription",id,visit!.Appointment.PatientId,ct);
+        return Results.Ok(await db.Prescriptions.Where(p=>p.Id==id).Select(Projections.Prescriptions).SingleAsync(ct));
     }
 
     // DELETE /api/prescriptions/{id} — только пока приём не закрыт
@@ -231,4 +248,16 @@ public static class VisitEndpoints
         await audit.LogAsync(user, AuditAction.Update, "referral", id, referral.Visit.Appointment.PatientId, ct);
         return Results.NoContent();
     }
+    private static async Task<IResult> DeleteReferral(int id, ClaimsPrincipal user, MyDbContext db, AuditService audit, CancellationToken ct)
+    {
+        var referral=await db.Referrals.FirstOrDefaultAsync(r=>r.Id==id,ct);
+        if(referral is null)return Err.NotFound("Направление не найдено");
+        var (error,visit)=await LoadOwnOpenVisitAsync(referral.VisitId,user,db,ct);
+        if(error is not null)return error;
+        if(referral.Status==ReferralStatus.Done)return Err.Conflict("Выполненное исследование удалять нельзя");
+        await db.Referrals.Where(r=>r.Id==id).ExecuteDeleteAsync(ct);
+        await audit.LogAsync(user,AuditAction.Delete,"referral",id,visit!.Appointment.PatientId,ct);
+        return Results.NoContent();
+    }
+
 }

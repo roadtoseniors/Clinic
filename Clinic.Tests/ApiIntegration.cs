@@ -8,13 +8,13 @@ using System.Text;
 
 public static class ApiIntegration
 {
-    public static async Task RunAsync()
+    public static async Task RunAsync(string? expectedDatabase=null,string? fixtureConnection=null)
     {
         var url=Environment.GetEnvironmentVariable("CLINIC_API_URL")??"http://127.0.0.1:5278";
         if(!Uri.TryCreate(url,UriKind.Absolute,out var uri)||!uri.IsLoopback)throw new Exception("API checks run only against a loopback test server.");
         using var ping=new HttpClient();var environment=await ping.GetFromJsonAsync<Dictionary<string,string>>(url.TrimEnd('/')+"/health");
-        if(environment?.GetValueOrDefault("database")!="clinic_api_integration_test")throw new Exception("API checks require clinic_api_integration_test.");
-        await ApiFixture.PrepareTodayAsync();
+        if(environment?.GetValueOrDefault("database")!=(expectedDatabase??"clinic_api_integration_test"))throw new Exception("API checks require clinic_api_integration_test.");
+        await ApiFixture.PrepareTodayAsync(fixtureConnection);
         var checks=0;void Assert(bool condition,string label){if(!condition)throw new Exception(label);checks++;}
         async Task Denied(Func<Task> work,string label){try{await work();}catch(InvalidOperationException){checks++;return;}throw new Exception("Expected rejection: "+label);}
         async Task<(HttpClinicGateway Gateway,ClinicSession Session)> Login(string login)
@@ -25,10 +25,13 @@ public static class ApiIntegration
         using(p)using(r)using(d)using(a)
         {
             foreach(var (g,s) in new[]{(p,patient),(r,registrar),(d,doctor),(a,admin)})foreach(var section in Catalog.Sections(s.Role).Where(s=>s.Key is not ("home" or "backup"))){await g.ListAsync(s,section.Key);checks++;}
+            long policySeed=9000000000000000+DateTime.UtcNow.Ticks%900000000000000;
+            string Policy()=>(policySeed++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var registrationPolicy=Policy();var patientPolicy=Policy();
             var unique=Guid.NewGuid().ToString("N")[..10];using var publicApi=new HttpClinicGateway(url);var publicChoices=await publicApi.RegistrationChoicesAsync();
             using(var registration=new HttpClinicGateway(url))
             {
-                var values=new Dictionary<string,string>{["last_name"]="Демонстрационный",["first_name"]="Пациент",["birth_date"]="1990-01-01",["gender"]="М",["oms_policy"]="TEST-"+unique,["oms_company_id"]=publicChoices["companies"][0].Id,["login"]="test_"+unique,["password"]="demo12345",["password_confirmation"]="demo12345"};
+                var values=new Dictionary<string,string>{["last_name"]="Демонстрационный",["first_name"]="Пациент",["birth_date"]="1990-01-01",["gender"]="М",["oms_policy"]=registrationPolicy,["oms_company_id"]=publicChoices["companies"][0].Id,["login"]="test_"+unique,["password"]="demo12345",["password_confirmation"]="demo12345"};
                 await registration.RegisterAsync(values);var registered=await registration.SignInAsync(values["login"],values["password"]);Assert(registered?.Session.Role=="Пациент","Registration creates a real patient account");
                 await registration.SaveAsync(registered!.Value.Session,new("password",0,new(){["old_password"]="demo12345",["new_password"]="demo123456",["confirmation"]="demo123456"}));
                 using var relogin=new HttpClinicGateway(url);Assert(await relogin.SignInAsync(values["login"],"demo123456") is not null,"Changed password persists in PostgreSQL");
@@ -39,8 +42,8 @@ public static class ApiIntegration
             Assert((await a.ListAsync(admin,"services")).First(v=>v.Id==serviceId).Cell3=="234.56 ₽","Service edit uses API list and update routes");
             await a.ActAsync(admin,"toggle_service",serviceId);Assert((await a.ListAsync(admin,"services")).First(v=>v.Id==serviceId).Status=="архив","Service archive persisted");
             await a.ActAsync(admin,"toggle_service",serviceId);Assert((await a.ListAsync(admin,"services")).First(v=>v.Id==serviceId).Status=="активна","Service restore persisted");
-            var createdPatient=await r.SaveAsync(registrar,new("patient",0,new(){["last_name"]="Демо",["first_name"]="Новый",["birth_date"]="1990-01-01",["gender"]="Ж",["oms_policy"]="PAT-"+unique,["oms_company_id"]=publicChoices["companies"][0].Id,["district_id"]=ac["districts"][0].Id,["primary_doctor_id"]=doctor.EmployeeId.ToString()!}));
-            var newCard=(await r.ListAsync(registrar,"patients")).First(v=>v.Id==createdPatient);Assert(newCard.Values["oms_policy"]=="PAT-"+unique&&newCard.Values["district_id"]==ac["districts"][0].Id,"Patient, policy and attachment saved through API");
+            var createdPatient=await r.SaveAsync(registrar,new("patient",0,new(){["last_name"]="Демо",["first_name"]="Новый",["birth_date"]="1990-01-01",["gender"]="Ж",["oms_policy"]=patientPolicy,["oms_company_id"]=publicChoices["companies"][0].Id,["district_id"]=ac["districts"][0].Id,["primary_doctor_id"]=doctor.EmployeeId.ToString()!}));
+            var newCard=(await r.ListAsync(registrar,"patients")).First(v=>v.Id==createdPatient);Assert(newCard.Values["oms_policy"]==patientPolicy&&newCard.Values["district_id"]==ac["districts"][0].Id,"Patient, policy and attachment saved through API");
             await r.ActAsync(registrar,"toggle_patient",createdPatient);Assert((await r.ListAsync(registrar,"patients")).First(v=>v.Id==createdPatient).Status=="архив","Patient archive persisted");
             await r.ActAsync(registrar,"toggle_patient",createdPatient);
             Assert((await p.ListAsync(patient,"patients")).Single().Id==patient.PatientId,"Own card only");
@@ -78,7 +81,7 @@ public static class ApiIntegration
             Assert(backup.RootElement.GetProperty("kind").GetString()=="clinic-server-backup"&&backup.RootElement.GetProperty("fileName").GetString()!.EndsWith(".backup"),"Server pg_dump backup created");
             var note=(await p.ListAsync(patient,"notifications")).First(x=>x.Status=="новое");await p.ActAsync(patient,"mark_read",note.Id);Assert((await p.ListAsync(patient,"notifications")).First(x=>x.Id==note.Id).Status=="прочитано","Notification read persisted");
             var vm=new MainViewModel{ApiAddress=url,Login="sokolov",Password="wrong"};await vm.SignInCommand.ExecuteAsync(null);Assert(vm.HasStatusMessage&&!vm.IsSignedIn,"Login error remains visible");
-            vm.Password="demo12345";await vm.SignInCommand.ExecuteAsync(null);Assert(vm.IsSignedIn&&vm.Workspace?.Gateway is HttpClinicGateway,"ViewModel uses live API");await vm.SignOutCommand.ExecuteAsync(null);
+            vm.Password="demo12345";await vm.SignInCommand.ExecuteAsync(null);Assert(vm.IsSignedIn&&vm.Workspace?.Gateway is HttpClinicGateway,"ViewModel uses live API");await TestUi.SignOutAsync(vm);
         }
         Console.WriteLine($"PASS: {checks} checks (HTTP API + PostgreSQL)");
     }

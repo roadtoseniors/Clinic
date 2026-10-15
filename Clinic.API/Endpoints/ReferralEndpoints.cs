@@ -10,6 +10,7 @@ public static class ReferralEndpoints
     {
         api.MapGet("/referrals", Queue).RequirePermission(Perm.ReferralView);
         api.MapGet("/referrals/{id:int}", Get).RequirePermission(Perm.ReferralView, Perm.MedcardView);
+        api.MapPost("/referrals/{id:int}/complete", Complete).RequirePermission(Perm.ReferralResult).DisableAntiforgery();
         api.MapPut("/referrals/{id:int}/result", SaveResult).RequirePermission(Perm.ReferralResult);
 
         api.MapGet("/referrals/{id:int}/files", Files).RequirePermission(Perm.ReferralView, Perm.MedcardView);
@@ -20,12 +21,31 @@ public static class ReferralEndpoints
         api.MapDelete("/referral-files/{id:int}", DeleteFile).RequirePermission(Perm.ReferralResult);
     }
 
+    private static async Task<IResult> Complete(int id, HttpRequest request, ClaimsPrincipal user, MyDbContext db, AuditService audit, CancellationToken ct)
+    {
+        if(!request.HasFormContentType)return Err.BadRequest("Нужны заключение и файлы формы");
+        var form=await request.ReadFormAsync(ct);var text=form["result"].ToString();
+        if(string.IsNullOrWhiteSpace(text))return Err.BadRequest("Заключение обязательно");
+        if(form.Files.Sum(f=>f.Length)>MaxFileBytes)return Err.BadRequest("Общий размер файлов — не более 10 МБ");
+        if(form.Files.Count>10)return Err.BadRequest("За один раз можно прикрепить до 10 файлов");
+        await using var tx=await db.Database.BeginTransactionAsync(ct);
+        foreach(var file in form.Files)
+        {
+            var uploaded=await Upload(id,file,user,db,audit,ct);
+            if(uploaded is IStatusCodeHttpResult { StatusCode: >=400 })return uploaded;
+        }
+        var saved=await SaveResult(id,new ReferralResultDto(text),user,db,audit,ct);
+        if(saved is IStatusCodeHttpResult { StatusCode: >=400 })return saved;
+        await tx.CommitAsync(ct);return saved;
+    }
+
     // GET /api/referrals?status=выдано&serviceId=&patientId=&page=1
     // По умолчанию — очередь невыполненных направлений, старые первыми. status=all — все.
     private static async Task<IResult> Queue(string? status, int? serviceId, int? patientId, int? page, int? pageSize,
-        MyDbContext db, CancellationToken ct)
+        ClaimsPrincipal user, MyDbContext db, CancellationToken ct)
     {
-        var query = db.Referrals.AsNoTracking();
+        var allowed = MedicalAccess.Patients(db,user).Select(p => p.Id);
+        var query = db.Referrals.AsNoTracking().Where(r => allowed.Contains(r.Visit.Appointment.PatientId));
         var wanted = Text.Clean(status) ?? ReferralStatus.Issued;
         if (wanted != "all") query = query.Where(r => r.Status == wanted);
         if (serviceId is int s) query = query.Where(r => r.ServiceId == s);
@@ -64,6 +84,8 @@ public static class ReferralEndpoints
         referral.Status = ReferralStatus.Done;
         referral.DoneAt = Clock.Now;
         referral.ExecutorId = employeeId;
+        db.Notifications.Add(new Notification { PatientId = referral.Visit.Appointment.PatientId, CreatedAt = Clock.Now,
+            Message = "Готов результат исследования. Откройте раздел «Исследования».", IsRead = false });
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(user, AuditAction.Update, "referral", id, referral.Visit.Appointment.PatientId, ct);
 

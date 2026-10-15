@@ -16,13 +16,14 @@ public static class ScheduleEndpoints
     }
 
     // GET /api/schedules?from=2026-10-01&to=2026-10-07&employeeId=2
-    private static async Task<IResult> List(DateOnly? from, DateOnly? to, int? employeeId, MyDbContext db, CancellationToken ct)
+    private static async Task<IResult> List(DateOnly? from, DateOnly? to, int? employeeId, ClaimsPrincipal user, MyDbContext db, CancellationToken ct)
     {
         var start = from ?? Clock.Today;
         var end = to ?? start.AddDays(14);
         if (end < start) return Err.BadRequest("Дата «по» раньше даты «с»");
 
         var query = db.Schedules.AsNoTracking().Where(s => s.WorkDate >= start && s.WorkDate <= end);
+        if(user.IsInRole(RoleCode.Doctor)) query=query.Where(s=>s.EmployeeId==user.GetEmployeeId());
         if (employeeId is int e) query = query.Where(s => s.EmployeeId == e);
 
         return Results.Ok(await query
