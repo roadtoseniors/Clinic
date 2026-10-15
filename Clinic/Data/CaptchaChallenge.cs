@@ -1,5 +1,7 @@
 using System;
+
 namespace Clinic.Data;
+
 public sealed record CaptchaChallenge(string ChallengeId, string ImageBase64, DateTimeOffset ExpiresAt);
 public sealed class CaptchaRequiredException(string message, CaptchaChallenge challenge) : InvalidOperationException(message)
 {

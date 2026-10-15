@@ -1,140 +1,43 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- xmlns:vm="using:Clinic.ViewModels" xmlns:w="using:Clinic.Workspace" xmlns:demo="using:Clinic.Demo"
- x:Class="Clinic.Views.DashboardView" x:DataType="vm:WorkspaceViewModel" Background="{DynamicResource PageBackground}">
- <Grid>
- <Grid ColumnDefinitions="218,*" IsEnabled="{Binding CanInteract}">
-  <Border Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,1,0">
-   <Grid RowDefinitions="Auto,*,Auto" Margin="14,24,14,18">
-    <StackPanel Orientation="Horizontal" Spacing="10" Margin="6,0,0,28">
-     <Path Data="M9,1 H17 V9 H25 V17 H17 V25 H9 V17 H1 V9 H9 Z" Width="30" Height="30" Stretch="Uniform" Fill="{DynamicResource AccentText}"/>
-     <StackPanel VerticalAlignment="Center"><TextBlock Text="Медицинская" FontWeight="Bold" FontSize="12"/><TextBlock Text="информационная система" Foreground="{DynamicResource MutedText}" FontSize="9"/></StackPanel>
-    </StackPanel>
-    <ListBox Grid.Row="1" Classes="navigation" ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" Background="Transparent" BorderThickness="0">
-     <ListBox.ItemTemplate><DataTemplate x:DataType="w:Section"><Grid ColumnDefinitions="24,*" ColumnSpacing="8"><Path Data="{Binding IconPath}" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.5"/><TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="12" VerticalAlignment="Center"/></Grid></DataTemplate></ListBox.ItemTemplate>
-    </ListBox>
-    <StackPanel Grid.Row="2" Spacing="14">
-     <Border Background="{DynamicResource CardBackground}" CornerRadius="10" Padding="12"><StackPanel Spacing="4"><TextBlock Text="{Binding Owner.DisplayName}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/><TextBlock Text="{Binding Owner.Role}" Foreground="{DynamicResource MutedText}" FontSize="11"/></StackPanel></Border>
-     <Button Content="Выйти из системы" Command="{Binding Owner.SignOutCommand}" Classes="quiet" HorizontalAlignment="Stretch"/>
-    </StackPanel>
-   </Grid>
-  </Border>
-  <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto" Margin="28,24,28,22">
-   <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,22">
-    <TextBlock Text="{Binding Owner.Today}" Foreground="{DynamicResource MutedText}" FontSize="12" VerticalAlignment="Center"/>
-    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12"><Button Classes="quiet" Content="Сменить пароль" Command="{Binding ChangePasswordCommand}"/><Button Classes="themeToggle" Content="{Binding Owner.ThemeToggleLabel}" Command="{Binding Owner.ToggleThemeCommand}" IsEnabled="{Binding !Owner.IsThemeBusy}"/></StackPanel>
-   </Grid>
-   <StackPanel Grid.Row="1" Spacing="14" Margin="0,0,0,18">
-    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
-     <StackPanel Spacing="5"><TextBlock Text="{Binding Title}" FontSize="26" FontWeight="Bold"/><TextBlock Text="{Binding Description}" Foreground="{DynamicResource MutedText}" FontSize="12"/></StackPanel>
-     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><Button Content="Обновить" Classes="quiet" Command="{Binding RefreshCommand}"/><Button Content="{Binding AddLabel}" IsVisible="{Binding CanAdd}" Classes="primary" Command="{Binding AddCommand}"/></StackPanel>
-    </Grid>
-    <TextBlock Text="{Binding Owner.ThemeError}" Foreground="{DynamicResource ErrorText}" IsVisible="{Binding Owner.HasThemeError}" TextWrapping="Wrap"/>
-    <Border IsVisible="{Binding HasMessage}" Classes="notice" Classes.error="{Binding IsError}" Classes.success="{Binding !IsError}" CornerRadius="8" Padding="12"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"><TextBlock Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center"/><Button Grid.Column="1" Content="Закрыть" Classes="quiet" Command="{Binding DismissMessageCommand}" ToolTip.Tip="Скрыть сообщение"/></Grid></Border>
-    <ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="True" Height="3"/>
-   </StackPanel>
-   <ScrollViewer Grid.Row="2" IsVisible="{Binding IsHome}" VerticalScrollBarVisibility="Auto">
-    <StackPanel Spacing="22">
-     <Border Classes="welcome" Background="{DynamicResource BrandBackground}" CornerRadius="14" Padding="26"><StackPanel Spacing="9"><TextBlock Text="{Binding Owner.DisplayName, StringFormat='Добро пожаловать, {0}!'}" Foreground="White" FontWeight="Bold" FontSize="23" TextWrapping="Wrap"/><TextBlock Text="{Binding Owner.Subtitle}" Foreground="{DynamicResource BrandMuted}" FontSize="13" TextWrapping="Wrap"/></StackPanel></Border>
-     <ItemsControl ItemsSource="{Binding Metrics}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate x:DataType="demo:DashboardMetric"><Border Classes="card" Margin="0,0,14,0" Padding="20"><StackPanel Spacing="8"><TextBlock ToolTip.Tip="{Binding Detail}" Text="{Binding Label}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource MutedText}"/><TextBlock Text="{Binding Value}" FontSize="32" FontWeight="Bold" Foreground="{DynamicResource AccentText}"/><TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource FaintText}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-     <Grid ColumnDefinitions="2*,*" ColumnSpacing="18">
-      <Border Classes="card" Padding="22"><StackPanel Spacing="16"><TextBlock Text="{Binding EventTitle}" FontSize="17" FontWeight="Bold"/><ItemsControl ItemsSource="{Binding Events}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="demo:DashboardItem"><Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,14"><Grid ColumnDefinitions="80,*,Auto" ColumnSpacing="12"><TextBlock Text="{Binding Time}" Foreground="{DynamicResource MutedText}" FontSize="11" TextWrapping="Wrap"/><StackPanel Grid.Column="1" Spacing="5"><TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/><TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/></StackPanel><Border Grid.Column="2" Classes="badge" Classes.success="{Binding IsSuccessStatus}" Classes.error="{Binding IsErrorStatus}" Classes.warning="{Binding IsWarningStatus}" Classes.neutral="{Binding IsNeutralStatus}" Padding="8,4" CornerRadius="6" VerticalAlignment="Top"><TextBlock Text="{Binding Badge}" FontSize="10"/></Border></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Text="На сегодня событий нет" IsVisible="{Binding !HasEvents}" Foreground="{DynamicResource MutedText}" FontSize="12"/></StackPanel></Border>
-      <Border Grid.Column="1" Classes="card" Padding="22"><StackPanel Spacing="14"><TextBlock Text="Быстрый доступ" FontWeight="Bold" FontSize="16"/><TextBlock Text="{Binding Note}" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap" LineHeight="21"/><ItemsControl ItemsSource="{Binding QuickLinks}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="w:Section"><Button Content="{Binding Title}" Command="{ReflectionBinding $parent[UserControl].DataContext.NavigateCommand}" CommandParameter="{Binding Key}" Classes="quiet" HorizontalAlignment="Stretch" Margin="0,0,0,8"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></Border>
-     </Grid>
-    </StackPanel>
-   </ScrollViewer>
-   <Grid Grid.Row="2" RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsTable}">
-    <Grid ColumnDefinitions="2*,*,*,Auto,Auto" ColumnSpacing="12" Margin="0,0,0,14">
-     <TextBox Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Поиск по имени, полису, карте или названию…"/>
-     <ComboBox Grid.Column="1" ItemsSource="{Binding Statuses}" SelectedItem="{Binding StatusFilter}" HorizontalAlignment="Stretch"/>
-     <ComboBox Grid.Column="2" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SortOrder}" ToolTip.Tip="Порядок записей" HorizontalAlignment="Stretch"/>
-     <Button Grid.Column="3" Content="{Binding ReportDisplayLabel}" IsVisible="{Binding IsReports}" Command="{Binding ToggleReportDisplayCommand}" Classes="quiet"/>
-     <Button Grid.Column="4" Content="Экспорт" Classes="quiet" Command="{Binding FileCommand}" CommandParameter="export_all"/>
-    </Grid>
-    <ScrollViewer Grid.Row="1" IsVisible="{Binding ShowReportCharts}" VerticalScrollBarVisibility="Auto" Margin="0,0,0,14">
-     <ItemsControl ItemsSource="{Binding ReportCharts}">
-      <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-      <ItemsControl.ItemTemplate><DataTemplate x:DataType="w:ReportChart">
-       <Border Classes="card" Padding="18" Margin="0,0,12,12"><StackPanel Spacing="12">
-        <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Bold"/>
-        <TextBlock Text="Нет данных за выбранный период" IsVisible="{Binding !HasPoints}" FontSize="12" Foreground="{DynamicResource MutedText}"/>
-        <ItemsControl ItemsSource="{Binding Points}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="w:ChartPoint">
-         <StackPanel Spacing="4" Margin="0,0,0,10" ToolTip.Tip="{Binding Display}">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" FontSize="11"/><TextBlock Grid.Column="1" Text="{Binding Display}" FontSize="11" FontWeight="SemiBold"/></Grid>
-          <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" Height="10" Foreground="{DynamicResource AccentText}"/>
-         </StackPanel>
-        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-       </StackPanel></Border>
-      </DataTemplate></ItemsControl.ItemTemplate>
-     </ItemsControl>
-    </ScrollViewer>
-    <Grid Grid.Row="1" IsVisible="{Binding ShowRecords}" ColumnDefinitions="*,Auto" ColumnSpacing="16">
-     <Border Classes="card">
-      <Grid RowDefinitions="Auto,*,Auto">
-       <Grid ColumnDefinitions="1.15*,1.3*,*,*,100" ColumnSpacing="10" Margin="16,14"><TextBlock Text="{Binding Header1}" Classes="tableHeader"/><TextBlock Grid.Column="1" Text="{Binding Header2}" Classes="tableHeader"/><TextBlock Grid.Column="2" Text="{Binding Header3}" Classes="tableHeader"/><TextBlock Grid.Column="3" Text="{Binding Header4}" Classes="tableHeader"/><TextBlock Grid.Column="4" Text="Статус" Classes="tableHeader"/></Grid>
-       <ListBox Grid.Row="1" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" Classes="records" Background="Transparent" BorderThickness="0">
-        <ListBox.ItemTemplate><DataTemplate x:DataType="w:Record"><Grid ColumnDefinitions="1.15*,1.3*,*,*,100" ColumnSpacing="10" MinHeight="40"><TextBlock Text="{Binding Cell1}" Classes="tableCell" FontWeight="SemiBold"/><TextBlock Grid.Column="1" Text="{Binding Cell2}" Classes="tableCell"/><TextBlock Grid.Column="2" Text="{Binding Cell3}" Classes="tableCell"/><TextBlock Grid.Column="3" Text="{Binding Cell4}" Classes="tableCell"/><Border Grid.Column="4" Classes="badge" Classes.success="{Binding IsSuccessStatus}" Classes.error="{Binding IsErrorStatus}" Classes.warning="{Binding IsWarningStatus}" Classes.neutral="{Binding IsNeutralStatus}" CornerRadius="6" Padding="6,4" VerticalAlignment="Center"><TextBlock Text="{Binding Status}" FontSize="10" TextWrapping="Wrap"/></Border></Grid></DataTemplate></ListBox.ItemTemplate>
-       </ListBox>
-       <StackPanel Grid.Row="1" IsVisible="{Binding IsEmpty}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8"><TextBlock Text="{Binding EmptyTitle}" FontWeight="SemiBold" FontSize="17" HorizontalAlignment="Center"/><TextBlock Text="{Binding EmptyDescription}" TextWrapping="Wrap" MaxWidth="340" TextAlignment="Center" Foreground="{DynamicResource MutedText}" FontSize="12"/></StackPanel>
-       <TextBlock Grid.Row="2" Text="{Binding RowCount}" FontSize="11" Foreground="{DynamicResource MutedText}" Margin="16,12"/>
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Clinic.ViewModels" xmlns:w="using:Clinic.Workspace" xmlns:data="using:Clinic.Data" xmlns:v="using:Clinic.Views" x:Class="Clinic.Views.DashboardView" x:DataType="vm:WorkspaceViewModel">
+  <Grid Background="{DynamicResource PageBackground}">
+    <Grid ColumnDefinitions="224,*" IsEnabled="{Binding CanInteract}">
+      <v:WorkspaceNavigationView/>
+      <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Margin="32,26,32,28">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,26">
+          <StackPanel Spacing="6">
+            <TextBlock Text="{Binding Title}" FontSize="27" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Description}" Foreground="{DynamicResource MutedText}" FontSize="13"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <Button Content="Обновить" Classes="quiet" Command="{Binding RefreshCommand}" ToolTip.Tip="Загрузить актуальные данные"/>
+            <Button Content="{Binding AddLabel}" IsVisible="{Binding CanAdd}" Classes="primary" Command="{Binding AddCommand}"/>
+          </StackPanel>
+        </Grid>
+        <StackPanel Grid.Row="1" Spacing="10">
+          <TextBlock Text="{Binding Owner.ThemeError}" Foreground="{DynamicResource ErrorText}" IsVisible="{Binding Owner.HasThemeError}" TextWrapping="Wrap"/>
+          <Border IsVisible="{Binding HasMessage}" Classes="notice" Classes.error="{Binding IsError}" Classes.success="{Binding !IsError}" CornerRadius="8" Padding="12" Margin="0,0,0,16">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+              <Button Grid.Column="1" Content="Закрыть" Classes="quiet" Command="{Binding DismissMessageCommand}"/>
+            </Grid>
+          </Border>
+          <ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="True" Height="3" Margin="0,0,0,8"/>
+        </StackPanel>
+        <v:WorkspaceHomeView Grid.Row="2" IsVisible="{Binding IsHome}"/>
+        <v:WorkspaceRecordsView Grid.Row="2" IsVisible="{Binding IsTable}"/>
+        <Border Grid.Row="2" Classes="card" Padding="32" IsVisible="{Binding IsBackup}" VerticalAlignment="Top">
+          <StackPanel Spacing="20">
+            <TextBlock Text="Данные под защитой" FontSize="22" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding BackupDescription}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" MaxWidth="620" HorizontalAlignment="Left"/>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Content="Создать копию" Classes="primary" Command="{Binding FileCommand}" CommandParameter="backup"/>
+              <Button Content="Восстановить из файла" Classes="quiet" Command="{Binding FileCommand}" CommandParameter="restore"/>
+            </StackPanel>
+            <TextBlock Text="{Binding RestoreDescription}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedText}" MaxWidth="620" HorizontalAlignment="Left"/>
+          </StackPanel>
+        </Border>
       </Grid>
-     </Border>
-     <Border Grid.Column="1" Classes="card" Width="300" IsVisible="{Binding HasSelection}" Padding="18">
-      <ScrollViewer><StackPanel Spacing="14"><Button Content="Закрыть карточку" Command="{Binding CloseDetailsCommand}" Classes="quiet" HorizontalAlignment="Right"/><TextBlock Text="{Binding SelectedRow.Cell1}" FontWeight="Bold" FontSize="18" TextWrapping="Wrap"/><TextBlock Text="{Binding SelectedRow.Status}" Foreground="{DynamicResource AccentText}" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="{Binding SelectedRow.Details}" Foreground="{DynamicResource SecondaryText}" FontSize="12" TextWrapping="Wrap" LineHeight="20"/><Border Height="1" Background="{DynamicResource DividerBrush}"/><ItemsControl ItemsSource="{Binding Actions}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:RowAction"><Button Content="{Binding Label}" Command="{ReflectionBinding $parent[UserControl].DataContext.RowActionCommand}" CommandParameter="{Binding Key}" Classes="quiet" HorizontalAlignment="Stretch" Margin="0,0,0,8"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></ScrollViewer>
-     </Border>
     </Grid>
-    <StackPanel Grid.Row="2" IsEnabled="{Binding !IsBusy}" Orientation="Horizontal" Spacing="10" Margin="0,14,0,0"><CalendarDatePicker Width="160" SelectedDate="{Binding FilterFrom}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Начало периода" FirstDayOfWeek="Monday"/><CalendarDatePicker Width="160" SelectedDate="{Binding FilterTo}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Конец периода" FirstDayOfWeek="Monday"/><Button Content="Применить" Command="{Binding ApplyFiltersCommand}" Classes="quiet"/><Button Content="Сбросить фильтры" Command="{Binding ResetFiltersCommand}" Classes="quiet"/></StackPanel>
-   </Grid>
-   <Border Grid.Row="2" Classes="card" Padding="32" IsVisible="{Binding IsBackup}" VerticalAlignment="Top"><StackPanel Spacing="18"><TextBlock Text="Резервная копия данных" FontSize="22" FontWeight="Bold"/><TextBlock Text="{Binding BackupDescription}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" MaxWidth="620" HorizontalAlignment="Left"/><StackPanel Orientation="Horizontal" Spacing="12"><Button Content="Создать копию" Classes="primary" Command="{Binding FileCommand}" CommandParameter="backup"/><Button Content="Восстановить из файла" Classes="quiet" Command="{Binding FileCommand}" CommandParameter="restore"/></StackPanel><TextBlock Text="{Binding RestoreDescription}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource FaintText}" MaxWidth="620" HorizontalAlignment="Left"/></StackPanel></Border>
-   <TextBlock Grid.Row="3" Text="{Binding Owner.Role, StringFormat='Поликлиника · {0}'}" Foreground="{DynamicResource FaintText}" FontSize="10" Margin="0,16,0,0"/>
+    <v:WorkspaceDialogsView/>
   </Grid>
- </Grid>
- <Border Background="#99000000" IsVisible="{Binding IsEditorOpen}">
-  <Border Classes="card" Width="620" MaxHeight="720" Margin="24" Padding="26" HorizontalAlignment="Center" VerticalAlignment="Center">
-   <Grid RowDefinitions="Auto,*,Auto">
-    <StackPanel Spacing="6" Margin="0,0,0,20"><TextBlock Text="{Binding EditorTitle}" FontSize="23" FontWeight="Bold"/><TextBlock Text="* Обязательные поля" FontSize="11" Foreground="{DynamicResource MutedText}"/></StackPanel>
-    <ScrollViewer Grid.Row="1" IsEnabled="{Binding !IsBusy}" VerticalScrollBarVisibility="Auto"><StackPanel Spacing="14"><ItemsControl ItemsSource="{Binding Fields}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:EditorField"><StackPanel Spacing="7" Margin="0,0,12,16"><TextBlock ToolTip.Tip="{Binding Hint}" Text="{Binding Label}" FontWeight="SemiBold" FontSize="12"/><CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/><TextBox IsVisible="{Binding IsText}" IsReadOnly="{Binding IsReadOnly}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" AcceptsReturn="{Binding IsMultiline}" TextWrapping="Wrap" MinHeight="40" MaxHeight="180" PlaceholderText="{Binding Placeholder}" ToolTip.Tip="{Binding Hint}"/><ComboBox PlaceholderText="Выберите…" IsVisible="{Binding IsChoice}" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><Button IsVisible="{Binding CanAttach}" Content="Прикрепить файл (до 10 МБ)" Classes="quiet" Command="{Binding FileCommand}" CommandParameter="attach"/><ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="True" Height="3"/><TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap"/></StackPanel></ScrollViewer>
-    <StackPanel Grid.Row="2" IsEnabled="{Binding !IsBusy}" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" Margin="0,20,0,0"><Button Content="Отмена" Classes="quiet" Command="{Binding CloseEditorCommand}"/><Button Content="Сохранить" Classes="primary" Command="{Binding SaveCommand}"/></StackPanel>
-   </Grid>
-  </Border>
- </Border>
- <Border Background="#99000000" IsVisible="{Binding IsRestoreConfirmOpen}">
-  <Border Classes="card" Width="500" Margin="24" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
-   <StackPanel Spacing="18">
-    <TextBlock Text="Восстановление данных" FontSize="23" FontWeight="Bold"/>
-    <TextBlock Text="{Binding RestoreDescription}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}"/>
-    <TextBox Text="{Binding RestoreConfirmText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Введите ВОССТАНОВИТЬ"/>
-    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
-     <Button Content="Отмена" Classes="quiet" Command="{Binding CancelRestoreCommand}"/>
-     <Button Content="Восстановить" Classes="primary" IsEnabled="{Binding CanConfirmRestore}" Command="{Binding ConfirmRestoreCommand}"/>
-    </StackPanel>
-   </StackPanel>
-  </Border>
- </Border>
- <Border Background="#99000000" IsVisible="{Binding IsAttachmentPickerOpen}">
-  <Border Classes="card" Width="560" MaxHeight="550" Margin="24" Padding="26" VerticalAlignment="Center" HorizontalAlignment="Center">
-   <StackPanel Spacing="18"><TextBlock Text="Файлы результата" FontSize="23" FontWeight="Bold"/>
-    <ScrollViewer MaxHeight="330"><ItemsControl ItemsSource="{Binding AttachmentChoices}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="w:AttachmentInfo">
-     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,0,0,12">
-      <StackPanel><TextBlock Text="{Binding Name}" TextWrapping="Wrap"/><TextBlock Text="{Binding SizeLabel}" FontSize="11" Foreground="{DynamicResource MutedText}"/></StackPanel>
-      <Button Grid.Column="1" Content="Скачать" Classes="quiet" Command="{ReflectionBinding $parent[UserControl].DataContext.ChooseAttachmentCommand}" CommandParameter="{Binding}"/>
-      <Button Grid.Column="2" Content="Удалить" Classes="quiet" IsVisible="{ReflectionBinding $parent[UserControl].DataContext.CanDeleteAttachment}" Command="{ReflectionBinding $parent[UserControl].DataContext.DeleteAttachmentCommand}" CommandParameter="{Binding}"/>
-     </Grid>
-    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
-    <Button Content="Закрыть" Classes="quiet" HorizontalAlignment="Right" Command="{Binding CancelAttachmentChoiceCommand}"/>
-   </StackPanel>
-  </Border>
- </Border>
- <Border Background="#99000000" IsVisible="{Binding IsActionConfirmOpen}">
-  <Border Classes="card" Width="480" Margin="24" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
-   <StackPanel Spacing="18">
-    <TextBlock Text="{Binding ConfirmTitle}" FontSize="23" FontWeight="Bold" TextWrapping="Wrap"/>
-    <TextBlock Text="{Binding ConfirmDescription}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" LineHeight="21"/>
-    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
-     <Button Content="Назад" Classes="quiet" Command="{Binding CancelActionCommand}"/>
-     <Button Content="{Binding ConfirmLabel}" Classes="primary" Command="{Binding ConfirmActionCommand}"/>
-    </StackPanel>
-   </StackPanel>
-  </Border>
- </Border>
- </Grid>
 </UserControl>

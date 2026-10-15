@@ -5,10 +5,12 @@ using Clinic.Data;
 using Clinic.Demo;
 
 namespace Clinic.Workspace;
+public sealed record Choice(string Id, string Name)
+{
+    public override string ToString() => Name;
+}
 
-public sealed record Choice(string Id, string Name) { public override string ToString() => Name; }
-public sealed record Section(string Key, string Title, string Icon, string Description, string[] Headers,
-    string? EditKind = null, string? NewLabel = null)
+public sealed record Section(string Key, string Title, string Icon, string Description, string[] Headers, string? EditKind = null, string? NewLabel = null)
 {
     public string IconPath => Key switch
     {
@@ -23,6 +25,7 @@ public sealed record Section(string Key, string Title, string Icon, string Descr
         _ => "M5,3 H15 L20,8 V21 H5 Z M15,3 V8 H20 M8,12 H17 M8,16 H17"
     };
 }
+
 public sealed class Record
 {
     public int Id { get; init; }
@@ -36,24 +39,23 @@ public sealed class Record
     public bool IsErrorStatus => StatusPresentation.Tone(Status) == "error";
     public bool IsWarningStatus => StatusPresentation.Tone(Status) == "warning";
     public bool IsNeutralStatus => StatusPresentation.Tone(Status) == "neutral";
-    public Dictionary<string,string> Values { get; init; } = new();
+    public Dictionary<string, string> Values { get; init; } = new();
 }
-public sealed record FieldSpec(string Key, string Label, bool Required = false, string? Lookup = null,
-    bool Multiline = false, string? Default = null, bool Secret = false);
-public sealed record Mutation(string Kind, int Id, Dictionary<string,string> Values);
 
+public sealed record FieldSpec(string Key, string Label, bool Required = false, string? Lookup = null, bool Multiline = false, string? Default = null, bool Secret = false);
+public sealed record Mutation(string Kind, int Id, Dictionary<string, string> Values);
 public interface IClinicGateway
 {
-    Task<(ClinicSession Session, LiveDashboard Dashboard)?> SignInAsync(string login,string password);
+    Task<(ClinicSession Session, LiveDashboard Dashboard)?> SignInAsync(string login, string password);
     Task<bool?> GetUserThemeAsync(int accountId);
-    Task SaveUserThemeAsync(int accountId,bool dark);
+    Task SaveUserThemeAsync(int accountId, bool dark);
     Task<LiveDashboard> DashboardAsync(ClinicSession session);
-    Task<List<Record>> ListAsync(ClinicSession session,string page,DateTime? from=null,DateTime? to=null);
-    Task<Dictionary<string,List<Choice>>> ChoicesAsync(ClinicSession session);
-    Task<int> SaveAsync(ClinicSession session,Mutation mutation);
-    Task ActAsync(ClinicSession session,string action,int id,Dictionary<string,string>? values = null);
-    Task RegisterAsync(Dictionary<string,string> values);
-    Task<byte[]?> AttachmentAsync(ClinicSession session,int referralId);
+    Task<List<Record>> ListAsync(ClinicSession session, string page, DateTime? from = null, DateTime? to = null);
+    Task<Dictionary<string, List<Choice>>> ChoicesAsync(ClinicSession session);
+    Task<int> SaveAsync(ClinicSession session, Mutation mutation);
+    Task ActAsync(ClinicSession session, string action, int id, Dictionary<string, string>? values = null);
+    Task RegisterAsync(Dictionary<string, string> values);
+    Task<byte[]?> AttachmentAsync(ClinicSession session, int referralId);
     Task<string> BackupAsync(ClinicSession session);
-    Task RestoreAsync(ClinicSession session,string json);
+    Task RestoreAsync(ClinicSession session, string json);
 }

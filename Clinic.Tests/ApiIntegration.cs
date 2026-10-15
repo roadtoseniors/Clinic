@@ -39,7 +39,7 @@ public static class ApiIntegration
             var ac=await a.ChoicesAsync(admin);
             var serviceId=await a.SaveAsync(admin,new("service",0,new(){["name"]="Демо услуга "+unique,["group_id"]=ac["groups"][0].Id,["price"]="123.45"}));
             await a.SaveAsync(admin,new("service",serviceId,new(){["name"]="Демо услуга "+unique,["group_id"]=ac["groups"][0].Id,["price"]="234.56"}));
-            Assert((await a.ListAsync(admin,"services")).First(v=>v.Id==serviceId).Cell3=="234.56 ₽","Service edit uses API list and update routes");
+            Assert((await a.ListAsync(admin,"services")).First(v=>v.Id==serviceId).Cell3=="234,56 ₽","Service edit uses API list and update routes");
             await a.ActAsync(admin,"toggle_service",serviceId);Assert((await a.ListAsync(admin,"services")).First(v=>v.Id==serviceId).Status=="архив","Service archive persisted");
             await a.ActAsync(admin,"toggle_service",serviceId);Assert((await a.ListAsync(admin,"services")).First(v=>v.Id==serviceId).Status=="активна","Service restore persisted");
             var createdPatient=await r.SaveAsync(registrar,new("patient",0,new(){["last_name"]="Демо",["first_name"]="Новый",["birth_date"]="1990-01-01",["gender"]="Ж",["oms_policy"]=patientPolicy,["oms_company_id"]=publicChoices["companies"][0].Id,["district_id"]=ac["districts"][0].Id,["primary_doctor_id"]=doctor.EmployeeId.ToString()!}));

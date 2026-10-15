@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Clinic.ViewModels" xmlns:w="using:Clinic.Workspace" xmlns:data="using:Clinic.Data" xmlns:v="using:Clinic.Views" x:Class="Clinic.Views.WorkspaceNavigationView" x:DataType="vm:WorkspaceViewModel">
+  <Border Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,1,0">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="16,28,16,20">
+      <StackPanel Orientation="Horizontal" Spacing="12" Margin="12,0,0,34">
+        <Border Background="{DynamicResource InfoBackground}" CornerRadius="10" Padding="10">
+          <Path Data="M9,1 H17 V9 H25 V17 H17 V25 H9 V17 H1 V9 H9 Z" Width="23" Height="23" Stretch="Uniform" Fill="{DynamicResource AccentText}"/>
+        </Border>
+        <StackPanel VerticalAlignment="Center" Spacing="3">
+          <TextBlock Text="Поликлиника" FontWeight="SemiBold" FontSize="16"/>
+          <TextBlock Text="Медицинская система" Foreground="{DynamicResource MutedText}" FontSize="10"/>
+        </StackPanel>
+      </StackPanel>
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16">
+          <ItemsControl ItemsSource="{Binding MainNavigation}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="w:NavigationItem">
+                <Button Classes="navItem" Classes.active="{Binding IsActive}" Command="{ReflectionBinding $parent[UserControl].DataContext.NavigateCommand}" CommandParameter="{Binding Key}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                  <Grid ColumnDefinitions="22,*" ColumnSpacing="12">
+                    <Path Data="{Binding IconPath}" Width="19" Height="19" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.5"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" VerticalAlignment="Center"/>
+                  </Grid>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <StackPanel IsVisible="{Binding HasExtraNavigation}" Spacing="4">
+            <Button Classes="navItem" Command="{Binding ToggleExtraNavigationCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Дополнительно" FontSize="12" Foreground="{DynamicResource MutedText}"/>
+                <Path Grid.Column="1" Data="M1,1 L6,6 L11,1" Width="11" Height="6" Stroke="{DynamicResource MutedText}" StrokeThickness="1.5" Stretch="Uniform" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <ItemsControl ItemsSource="{Binding ExtraNavigation}" IsVisible="{Binding IsExtraNavigationOpen}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="w:NavigationItem">
+                  <Button Classes="navItem" Classes.active="{Binding IsActive}" Command="{ReflectionBinding $parent[UserControl].DataContext.NavigateCommand}" CommandParameter="{Binding Key}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Grid ColumnDefinitions="22,*" ColumnSpacing="12">
+                      <Path Data="{Binding IconPath}" Width="19" Height="19" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.5"/>
+                      <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" VerticalAlignment="Center"/>
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+          <StackPanel IsVisible="{Binding HasClinicalNavigation}" Spacing="4">
+            <Button Classes="navItem" Command="{Binding ToggleClinicalNavigationCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Клинические данные" FontSize="12" Foreground="{DynamicResource MutedText}"/>
+                <Path Grid.Column="1" Data="M1,1 L6,6 L11,1" Width="11" Height="6" Stroke="{DynamicResource MutedText}" StrokeThickness="1.5" Stretch="Uniform" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <ItemsControl ItemsSource="{Binding ClinicalNavigation}" IsVisible="{Binding IsClinicalNavigationOpen}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="w:NavigationItem">
+                  <Button Classes="navItem" Classes.active="{Binding IsActive}" Command="{ReflectionBinding $parent[UserControl].DataContext.NavigateCommand}" CommandParameter="{Binding Key}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Grid ColumnDefinitions="22,*" ColumnSpacing="12">
+                      <Path Data="{Binding IconPath}" Width="19" Height="19" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.5"/>
+                      <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" VerticalAlignment="Center"/>
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+      <StackPanel Grid.Row="2" Spacing="12" Margin="4,20,4,0">
+        <Border Height="1" Background="{DynamicResource DividerBrush}"/>
+        <StackPanel Spacing="5" Margin="8,6">
+          <TextBlock Text="{Binding Owner.DisplayName}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding Owner.Role}" Foreground="{DynamicResource MutedText}" FontSize="11"/>
+        </StackPanel>
+        <Button Content="Настройки" Classes="quiet" HorizontalAlignment="Stretch">
+          <Button.Flyout>
+            <MenuFlyout>
+              <MenuItem Header="{Binding Owner.ThemeToggleLabel}" Command="{Binding Owner.ToggleThemeCommand}" IsEnabled="{Binding !Owner.IsThemeBusy}"/>
+              <MenuItem Header="Сменить пароль" Command="{Binding ChangePasswordCommand}"/>
+              <Separator/>
+              <MenuItem Header="Выйти из системы" Command="{Binding Owner.SignOutCommand}"/>
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

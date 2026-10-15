@@ -8,11 +8,11 @@ if(args.Contains("--api")){await ApiIntegration.RunAsync();return;}
 if(args.Contains("--functional")){await FunctionalTests.RunAsync();return;}
 if(args.Contains("--startup")){await LocalApiStartup.RunAsync();return;}
 if(args.Contains("--startup-child")){await LocalApiStartup.RunChildAsync(args);return;}
-int assertions=LoginProtectionTests.Run()+await UiFlowTests.RunAsync();
+int assertions=LoginProtectionTests.Run()+await UiFlowTests.RunAsync()+await PresentationTests.RunAsync();
 void Assert(bool condition,string message){if(!condition)throw new Exception(message);assertions++;}
 async Task Denied(Func<Task> work,string label){try{await work();}catch(InvalidOperationException){assertions++;return;}catch(Npgsql.PostgresException ex) when(ex.SqlState=="23505"){assertions++;return;}throw new Exception("Expected rejection: "+label);}
 IClinicGateway gateway=new DemoGateway();
-if(args.Contains("--database"))gateway=ClinicDatabase.FromLocalConfiguration();
+if(args.Contains("--database"))throw new InvalidOperationException("Используйте --functional: проверки БД выполняются в отдельной временной базе через API.");
 async Task<ClinicSession> Login(string login)
 {
     var result=await gateway.SignInAsync(login,"demo123");Assert(result is not null,"Login: "+login);return result!.Value.Session;
@@ -77,7 +77,6 @@ await Denied(()=>gateway.SaveAsync(registrar,new("document",document,new(){["pat
 await Denied(()=>gateway.ActAsync(admin,"toggle_account",admin.AccountId),"Admin cannot block own account");
 var backup=await gateway.BackupAsync(admin);Assert(backup.Length>1000,"Backup contains data");await gateway.RestoreAsync(admin,backup);
 Assert((await gateway.ListAsync(doctor,"visits")).Any(v=>v.Id==visit.Id&&v.Status=="закрыт"),"Backup roundtrip");
-if(!args.Contains("--database"))
 {
     var independent=new DemoGateway();
     var patientDashboard=(await independent.SignInAsync("kirillov","demo123"))!.Value.Dashboard;
@@ -110,6 +109,7 @@ if(!args.Contains("--database"))
     closeEditor=workspace.CloseEditorCommand.ExecuteAsync(null);workspace.ConfirmActionCommand.Execute(null);await closeEditor;
     Assert(!workspace.IsEditorOpen,"Confirmed discard closes form");
     workspace.SelectedSection=workspace.Sections.First(s=>s.Key=="appointments");await workspace.RefreshCommand.ExecuteAsync(null);
+    await workspace.SetDateRangeCommand.ExecuteAsync("all");
     workspace.SelectedRow=workspace.Rows.First(r=>r.Status=="запланирована" && r.Id != startedAppointmentId);
     var appointmentId=workspace.SelectedRow.Id;
     var noShow=workspace.RowActionCommand.ExecuteAsync("no_show");

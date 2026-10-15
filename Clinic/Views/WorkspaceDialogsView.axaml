@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Clinic.ViewModels" xmlns:w="using:Clinic.Workspace" xmlns:data="using:Clinic.Data" xmlns:v="using:Clinic.Views" x:Class="Clinic.Views.WorkspaceDialogsView" x:DataType="vm:WorkspaceViewModel">
+  <Grid>
+    <Border Background="#99000000" IsVisible="{Binding IsEditorOpen}">
+      <Border Classes="card" Width="620" MaxHeight="720" Margin="24" Padding="26" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <StackPanel Spacing="6" Margin="0,0,0,20">
+            <TextBlock Text="{Binding EditorTitle}" FontSize="23" FontWeight="Bold"/>
+            <TextBlock Text="* Обязательные поля" FontSize="11" Foreground="{DynamicResource MutedText}"/>
+          </StackPanel>
+          <ScrollViewer Grid.Row="1" IsEnabled="{Binding !IsBusy}" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="14">
+              <ItemsControl ItemsSource="{Binding Fields}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EditorField">
+                    <StackPanel Spacing="7" Margin="0,0,12,16">
+                      <TextBlock ToolTip.Tip="{Binding Hint}" Text="{Binding Label}" FontWeight="SemiBold" FontSize="12"/>
+                      <CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/>
+                      <TextBox IsVisible="{Binding IsText}" IsReadOnly="{Binding IsReadOnly}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" AcceptsReturn="{Binding IsMultiline}" TextWrapping="Wrap" MinHeight="40" MaxHeight="180" PlaceholderText="{Binding Placeholder}" ToolTip.Tip="{Binding Hint}"/>
+                      <ComboBox PlaceholderText="{Binding ChoicePlaceholder}" IsVisible="{Binding IsChoice}" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button IsVisible="{Binding CanAttach}" Content="Прикрепить файл (до 10 МБ)" Classes="quiet" Command="{Binding FileCommand}" CommandParameter="attach"/>
+              <ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="True" Height="3"/>
+              <TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap"/>
+            </StackPanel>
+          </ScrollViewer>
+          <StackPanel Grid.Row="2" IsEnabled="{Binding !IsBusy}" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Отмена" Classes="quiet" Command="{Binding CloseEditorCommand}"/>
+            <Button Content="{Binding EditorSaveLabel}" Classes="primary" Command="{Binding SaveCommand}"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Border>
+    <Border Background="#99000000" IsVisible="{Binding IsRestoreConfirmOpen}">
+      <Border Classes="card" Width="500" Margin="24" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="18">
+          <TextBlock Text="Восстановление данных" FontSize="23" FontWeight="Bold"/>
+          <TextBlock Text="{Binding RestoreDescription}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}"/>
+          <TextBox Text="{Binding RestoreConfirmText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Введите ВОССТАНОВИТЬ"/>
+          <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+            <Button Content="Отмена" Classes="quiet" Command="{Binding CancelRestoreCommand}"/>
+            <Button Content="Восстановить" Classes="primary" IsEnabled="{Binding CanConfirmRestore}" Command="{Binding ConfirmRestoreCommand}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+    <Border Background="#99000000" IsVisible="{Binding IsAttachmentPickerOpen}">
+      <Border Classes="card" Width="560" MaxHeight="550" Margin="24" Padding="26" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <StackPanel Spacing="18">
+          <TextBlock Text="Файлы результата" FontSize="23" FontWeight="Bold"/>
+          <ScrollViewer MaxHeight="330">
+            <ItemsControl ItemsSource="{Binding AttachmentChoices}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="w:AttachmentInfo">
+                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,0,0,12">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding SizeLabel}" FontSize="11" Foreground="{DynamicResource MutedText}"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Скачать" Classes="quiet" Command="{ReflectionBinding $parent[UserControl].DataContext.ChooseAttachmentCommand}" CommandParameter="{Binding}"/>
+                    <Button Grid.Column="2" Content="Удалить" Classes="quiet" IsVisible="{ReflectionBinding $parent[UserControl].DataContext.CanDeleteAttachment}" Command="{ReflectionBinding $parent[UserControl].DataContext.DeleteAttachmentCommand}" CommandParameter="{Binding}"/>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <Button Content="Закрыть" Classes="quiet" HorizontalAlignment="Right" Command="{Binding CancelAttachmentChoiceCommand}"/>
+        </StackPanel>
+      </Border>
+    </Border>
+    <Border Background="#99000000" IsVisible="{Binding IsActionConfirmOpen}">
+      <Border Classes="card" Width="480" Margin="24" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="18">
+          <TextBlock Text="{Binding ConfirmTitle}" FontSize="23" FontWeight="Bold" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding ConfirmDescription}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" LineHeight="21"/>
+          <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+            <Button Content="Назад" Classes="quiet" Command="{Binding CancelActionCommand}"/>
+            <Button Content="{Binding ConfirmLabel}" Classes="primary" Command="{Binding ConfirmActionCommand}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Grid>
+</UserControl>

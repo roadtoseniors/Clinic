@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Clinic.ViewModels" xmlns:w="using:Clinic.Workspace" xmlns:data="using:Clinic.Data" xmlns:v="using:Clinic.Views" x:Class="Clinic.Views.WorkspaceHomeView" x:DataType="vm:WorkspaceViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Spacing="24">
+      <Border Classes="card" Padding="26">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{Binding Greeting}" FontSize="25" FontWeight="SemiBold" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Note}" MaxWidth="550" HorizontalAlignment="Left" Foreground="{DynamicResource MutedText}" FontSize="14" TextWrapping="Wrap" LineHeight="23"/>
+          </StackPanel>
+          <Button Grid.Column="1" Content="{Binding MainDestinationLabel}" IsVisible="{Binding HasMainDestination}" Command="{Binding OpenMainDestinationCommand}" Classes="primary" VerticalAlignment="Center"/>
+        </Grid>
+      </Border>
+      <ItemsControl ItemsSource="{Binding Metrics}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="3"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="data:DashboardMetric">
+            <Border Classes="card" Padding="22" Margin="0,0,12,0">
+              <StackPanel Spacing="9">
+                <TextBlock Text="{Binding Label}" FontSize="13" Foreground="{DynamicResource MutedText}"/>
+                <TextBlock Text="{Binding Value}" FontSize="34" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}"/>
+                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Border Classes="card" Padding="24">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding EventTitle}" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="{Binding Owner.Today}" Foreground="{DynamicResource MutedText}" FontSize="11" VerticalAlignment="Center"/>
+          </Grid>
+          <ItemsControl ItemsSource="{Binding Events}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="data:DashboardItem">
+                <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,18">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="20">
+                    <TextBlock Width="135" IsVisible="{Binding HasTime}" Text="{Binding Time}" FontSize="12" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/>
+                    <StackPanel Grid.Column="1" Spacing="5">
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource MutedText}" FontSize="12" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Border Grid.Column="2" Classes="badge" Classes.success="{Binding IsSuccessStatus}" Classes.error="{Binding IsErrorStatus}" Classes.warning="{Binding IsWarningStatus}" Classes.neutral="{Binding IsNeutralStatus}" CornerRadius="6" Padding="9,5" VerticalAlignment="Top">
+                      <TextBlock Text="{Binding Badge}" FontSize="11"/>
+                    </Border>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="На сегодня записей нет. Можно выбрать другой день в расписании." IsVisible="{Binding !HasEvents}" Foreground="{DynamicResource MutedText}" FontSize="13" TextWrapping="Wrap" Margin="0,20"/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

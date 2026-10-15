@@ -1,5 +1,4 @@
 namespace Clinic.Workspace;
-
 public static class StatusPresentation
 {
     public static string Tone(string status) => status.Trim().ToLowerInvariant() switch

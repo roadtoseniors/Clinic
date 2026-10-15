@@ -1,0 +1,149 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Clinic.ViewModels" xmlns:w="using:Clinic.Workspace" xmlns:data="using:Clinic.Data" xmlns:v="using:Clinic.Views" x:Class="Clinic.Views.WorkspaceRecordsView" x:DataType="vm:WorkspaceViewModel">
+  <Grid>
+    <Grid RowDefinitions="Auto,*">
+      <StackPanel Spacing="12" Margin="0,0,0,16">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+          <TextBox Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="{Binding SearchPlaceholder}"/>
+          <Button Grid.Column="1" Content="{Binding DateScopeLabel}" IsVisible="{Binding HasDayScope}" Classes="quiet">
+            <Button.Flyout>
+              <MenuFlyout>
+                <MenuItem Header="Сегодня" Command="{Binding SetDateRangeCommand}" CommandParameter="today"/>
+                <MenuItem Header="Ближайшая неделя" Command="{Binding SetDateRangeCommand}" CommandParameter="week"/>
+                <MenuItem Header="Все даты" Command="{Binding SetDateRangeCommand}" CommandParameter="all"/>
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+          <Button Grid.Column="2" Content="{Binding FilterLabel}" Classes="quiet" Command="{Binding ToggleFiltersCommand}"/>
+          <Button Grid.Column="3" Content="{Binding ReportDisplayLabel}" IsVisible="{Binding IsReports}" Command="{Binding ToggleReportDisplayCommand}" Classes="quiet"/>
+          <Button Grid.Column="4" Content="Действия" Classes="quiet" ToolTip.Tip="Действия со списком">
+            <Button.Flyout>
+              <MenuFlyout>
+                <MenuItem Header="Сохранить список" Command="{Binding FileCommand}" CommandParameter="export_all"/>
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+        </Grid>
+        <Border Classes="card" Padding="18" IsVisible="{Binding AreFiltersOpen}">
+          <StackPanel Spacing="16">
+            <WrapPanel Orientation="Horizontal">
+              <StackPanel Spacing="7" Margin="0,0,16,12" IsVisible="{Binding HasStatusOptions}">
+                <TextBlock Text="Статус" FontSize="11" Foreground="{DynamicResource MutedText}"/>
+                <ComboBox Width="180" ItemsSource="{Binding Statuses}" SelectedItem="{Binding StatusFilter}"/>
+              </StackPanel>
+              <StackPanel Spacing="7" Margin="0,0,16,12">
+                <TextBlock Text="Порядок" FontSize="11" Foreground="{DynamicResource MutedText}"/>
+                <ComboBox Width="190" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SortOrder}"/>
+              </StackPanel>
+              <StackPanel Spacing="7" Margin="0,0,16,12" IsVisible="{Binding HasDateFilter}">
+                <TextBlock Text="С даты" FontSize="11" Foreground="{DynamicResource MutedText}"/>
+                <CalendarDatePicker Width="150" SelectedDate="{Binding FilterFrom}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Начало периода" FirstDayOfWeek="Monday"/>
+              </StackPanel>
+              <StackPanel Spacing="7" IsVisible="{Binding HasDateFilter}">
+                <TextBlock Text="По дату" FontSize="11" Foreground="{DynamicResource MutedText}"/>
+                <CalendarDatePicker Width="150" SelectedDate="{Binding FilterTo}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Конец периода" FirstDayOfWeek="Monday"/>
+              </StackPanel>
+            </WrapPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button Content="Применить" Classes="primary" Command="{Binding ApplyFiltersCommand}"/>
+              <Button Content="Сбросить" Classes="quiet" Command="{Binding ResetFiltersCommand}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+      <ScrollViewer Grid.Row="1" IsVisible="{Binding ShowReportCharts}" VerticalScrollBarVisibility="Auto" Margin="0,0,0,14">
+        <ItemsControl ItemsSource="{Binding ReportCharts}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="2"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="w:ReportChart">
+              <Border Classes="card" Padding="18" Margin="0,0,12,12">
+                <StackPanel Spacing="12">
+                  <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Bold"/>
+                  <TextBlock Text="Нет данных за выбранный период" IsVisible="{Binding !HasPoints}" FontSize="12" Foreground="{DynamicResource MutedText}"/>
+                  <ItemsControl ItemsSource="{Binding Points}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="w:ChartPoint">
+                        <StackPanel Spacing="4" Margin="0,0,0,10" ToolTip.Tip="{Binding Display}">
+                          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" FontSize="11"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Display}" FontSize="11" FontWeight="SemiBold"/>
+                          </Grid>
+                          <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" Height="10" Foreground="{DynamicResource AccentText}"/>
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+      <Grid Grid.Row="1" IsVisible="{Binding ShowRecords}">
+        <Border Classes="card">
+          <Grid RowDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="1.3*,1.2*,*,*,110" ColumnSpacing="10" Margin="16,14">
+              <TextBlock Text="{Binding Header1}" Classes="tableHeader"/>
+              <TextBlock Grid.Column="1" Text="{Binding Header2}" Classes="tableHeader"/>
+              <TextBlock Grid.Column="2" Text="{Binding Header3}" Classes="tableHeader"/>
+              <TextBlock Grid.Column="3" Text="{Binding Header4}" Classes="tableHeader"/>
+              <TextBlock Grid.Column="4" Text="Статус" Classes="tableHeader"/>
+            </Grid>
+            <ListBox Grid.Row="1" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" Classes="records" Background="Transparent" BorderThickness="0">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="w:Record">
+                  <Grid ColumnDefinitions="1.3*,1.2*,*,*,110" ColumnSpacing="10" MinHeight="48">
+                    <TextBlock Text="{Binding Cell1}" Classes="tableCell" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Cell2}" Classes="tableCell"/>
+                    <TextBlock Grid.Column="2" Text="{Binding Cell3}" Classes="tableCell"/>
+                    <TextBlock Grid.Column="3" Text="{Binding Cell4}" Classes="tableCell"/>
+                    <Border Grid.Column="4" Classes="badge" Classes.success="{Binding IsSuccessStatus}" Classes.error="{Binding IsErrorStatus}" Classes.warning="{Binding IsWarningStatus}" Classes.neutral="{Binding IsNeutralStatus}" CornerRadius="6" Padding="6,4" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Status}" FontSize="10" TextWrapping="Wrap"/>
+                    </Border>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel Grid.Row="1" IsVisible="{Binding IsEmpty}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+              <TextBlock Text="{Binding EmptyTitle}" FontWeight="SemiBold" FontSize="17" HorizontalAlignment="Center"/>
+              <TextBlock Text="{Binding EmptyDescription}" TextWrapping="Wrap" MaxWidth="340" TextAlignment="Center" Foreground="{DynamicResource MutedText}" FontSize="12"/>
+            </StackPanel>
+            <TextBlock Grid.Row="2" Text="{Binding RowCount}" FontSize="11" Foreground="{DynamicResource MutedText}" Margin="16,12"/>
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+    <Grid IsVisible="{Binding HasSelection}">
+      <Button Background="#660E2634" BorderThickness="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Command="{Binding CloseDetailsCommand}"/>
+      <Border Width="440" HorizontalAlignment="Right" Classes="card" Padding="26">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,22">
+            <TextBlock Text="{Binding SelectionDescription}" FontSize="12" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Content="Закрыть" Command="{Binding CloseDetailsCommand}" Classes="quiet"/>
+          </Grid>
+          <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="18">
+              <TextBlock Text="{Binding SelectedRow.Cell1}" FontSize="23" FontWeight="SemiBold" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding SelectedRow.Status}" Foreground="{DynamicResource AccentText}" FontSize="13"/>
+              <TextBlock Text="{Binding SelectedRow.Details}" FontSize="14" Foreground="{DynamicResource SecondaryText}" TextWrapping="Wrap" LineHeight="24"/>
+            </StackPanel>
+          </ScrollViewer>
+          <Border Grid.Row="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="0,18,0,0" Margin="0,18,0,0">
+            <ScrollViewer MaxHeight="230">
+              <ItemsControl ItemsSource="{Binding Actions}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RowAction">
+                    <Button Content="{Binding Label}" Command="{ReflectionBinding $parent[UserControl].DataContext.RowActionCommand}" CommandParameter="{Binding Key}" Classes.quiet="{Binding !IsPrimary}" Classes.primary="{Binding IsPrimary}" HorizontalAlignment="Stretch" Margin="0,0,0,8"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>
