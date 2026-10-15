@@ -26,7 +26,7 @@ internal static class LocalApiStartup
 
         var address = FreeAddress();
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-        using (var owned = new LocalApiProcess(root, address))
+        using (var owned = new LocalApiProcess(root, address, ApiFixture.TestConnection(root)))
         {
             await owned.EnsureReadyAsync();
             var health = await http.GetFromJsonAsync<Dictionary<string, string>>(new Uri(address, "health"));
@@ -35,7 +35,7 @@ internal static class LocalApiStartup
                 throw new Exception("Login checks require the isolated clinic_api_integration_test database.");
             Assert(owned.OwnedProcessId.HasValue, "Started API belongs to launcher");
             var originalPid = owned.OwnedProcessId;
-            using (var peer = new LocalApiProcess(root, address))
+            using (var peer = new LocalApiProcess(root, address, ApiFixture.TestConnection(root)))
             {
                 await peer.EnsureReadyAsync();
                 Assert(peer.OwnedProcessId is null, "Second client reuses an existing API");
@@ -87,7 +87,7 @@ internal static class LocalApiStartup
 
     public static async Task RunChildAsync(string[] args)
     {
-        using var local = new LocalApiProcess(args[1], new Uri(args[2]));
+        using var local = new LocalApiProcess(args[1], new Uri(args[2]), ApiFixture.TestConnection(args[1]));
         await local.EnsureReadyAsync();
         Console.WriteLine("READY");
         await Task.Delay(Timeout.Infinite);

@@ -14,8 +14,7 @@ internal sealed class FunctionalDatabase : IAsyncDisposable
     public static async Task<FunctionalDatabase> CreateAsync(string root)
     {
         using var settings=JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(root,"Clinic.API","api.local.json")));
-        var source=new NpgsqlConnectionStringBuilder(settings.RootElement.GetProperty("ConnectionStrings").GetProperty("Clinic").GetString());
-        if(source.Database!="clinic_api_integration_test"||source.Host is not ("localhost" or "127.0.0.1"))throw new Exception("Functional checks require local clinic_api_integration_test as source");
+        var source = new NpgsqlConnectionStringBuilder(ApiFixture.TestConnection(root));
         var name="clinic_functional_"+Guid.NewGuid().ToString("N")[..12];
         var owner=new NpgsqlConnectionStringBuilder(source.ConnectionString){Database="postgres"};
         var target=new NpgsqlConnectionStringBuilder(source.ConnectionString){Database=name};
@@ -25,7 +24,7 @@ internal sealed class FunctionalDatabase : IAsyncDisposable
         try
         {
             await using(var c=new NpgsqlConnection(owner.ConnectionString)) {await c.OpenAsync();await using var cmd=new NpgsqlCommand("CREATE DATABASE "+name,c);await cmd.ExecuteNonQueryAsync();}
-            await RunAsync("pg_dump",source,["--format=c","--file",path,"--dbname",source.Database]);
+            await RunAsync("pg_dump",source,["--format=c","--file",path,"--dbname",source.Database!]);
             await RunAsync("pg_restore",target,["--no-owner","--dbname",name,path]);
             return result;
         }

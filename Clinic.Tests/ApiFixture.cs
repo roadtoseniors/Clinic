@@ -9,6 +9,17 @@ using System.Text.Json;
 
 public static class ApiFixture
 {
+    public static string TestConnection(string root)
+    {
+        var path = Path.Combine(root, "Clinic.API", "api.local.json");
+        using var settings = JsonDocument.Parse(File.ReadAllText(path));
+        var connection = new NpgsqlConnectionStringBuilder(settings.RootElement.GetProperty("ConnectionStrings").GetProperty("Clinic").GetString());
+        if (connection.Host is not ("localhost" or "127.0.0.1"))
+            throw new InvalidOperationException("Tests require local PostgreSQL.");
+        connection.Database = "clinic_api_integration_test";
+        return connection.ConnectionString;
+    }
+
     public static async Task PrepareTodayAsync(string? fixtureConnection=null)
     {
         var path=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../Clinic.API/api.local.json"));
