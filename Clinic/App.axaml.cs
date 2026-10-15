@@ -11,8 +11,15 @@ namespace Clinic;
 
 public partial class App : Application
 {
+    public App() => Name = "Поликлиника";
+    public static System.Func<MainViewModel>? ViewModelFactory { private get; set; }
+    private static MainViewModel CreateViewModel() => ViewModelFactory?.Invoke() ?? new();
+
     public override void Initialize()
     {
+        var culture = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+        System.Globalization.CultureInfo.DefaultThreadCurrentCulture = culture;
+        System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = culture;
         AvaloniaXamlLoader.Load(this);
     }
 
@@ -22,19 +29,19 @@ public partial class App : Application
         {
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainViewModel()
+                DataContext = CreateViewModel()
             };
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
             singleViewFactoryApplicationLifetime.MainViewFactory =
-                () => new MainView { DataContext = new MainViewModel() };
+                () => new MainView { DataContext = CreateViewModel() };
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
             singleViewPlatform.MainView = new MainView
             {
-                DataContext = new MainViewModel()
+                DataContext = CreateViewModel()
             };
         }
 

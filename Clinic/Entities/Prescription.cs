@@ -9,7 +9,7 @@ public partial class Prescription
 
     public int VisitId { get; set; }
 
-    public string Name { get; set; } = null!;
+    public int DrugId { get; set; }
 
     public string? Dosage { get; set; }
 
@@ -17,7 +17,7 @@ public partial class Prescription
 
     public bool IsRecipe { get; set; }
 
-    public DateOnly IssueDate { get; set; }
+    public virtual Drug Drug { get; set; } = null!;
 
     public virtual Visit Visit { get; set; } = null!;
 }

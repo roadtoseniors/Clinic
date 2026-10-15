@@ -6,8 +6,8 @@
         xmlns:views="using:Clinic.Views"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Clinic.Views.MainWindow"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/clinic.ico"
         Title="Медицинская информационная система"
-        Width="1280" Height="800" MinWidth="900" MinHeight="620">
+        Width="1440" Height="900" MinWidth="1100" MinHeight="680">
         <views:MainView />
 </Window>

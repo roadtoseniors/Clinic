@@ -26,6 +26,7 @@
       <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource InputFocusBorder}"/>
     </Style>
+    <Style Selector="Button.signIn:disabled"><Setter Property="Opacity" Value="0.55"/></Style>
     <Style Selector="Button.signIn">
       <Setter Property="Height" Value="48"/>
       <Setter Property="CornerRadius" Value="8"/>
@@ -50,12 +51,13 @@
 
   <Grid>
   <Grid ColumnDefinitions="*,*" MinWidth="780" IsVisible="{Binding IsSignedOut}">
+    <Grid.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding SignInCommand}"/></Grid.KeyBindings>
     <Border Grid.Column="0" Background="{DynamicResource BrandBackground}">
       <Grid RowDefinitions="Auto,*,Auto" Margin="56,44,56,40">
         <StackPanel Orientation="Horizontal" Spacing="12">
           <Grid Width="36" Height="36">
             <Border Background="#FFFFFF" CornerRadius="8" Opacity="0.16"/>
-            <TextBlock Text="✚" FontSize="27" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Path Data="M9,1 H17 V9 H25 V17 H17 V25 H9 V17 H1 V9 H9 Z" Width="27" Height="27" Stretch="Uniform" Fill="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Grid>
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="Медицинская" Foreground="White" FontWeight="SemiBold" FontSize="14"/>
@@ -65,7 +67,7 @@
 
         <StackPanel Grid.Row="1" VerticalAlignment="Center" MaxWidth="480" Spacing="22">
           <Border Width="64" Height="64" Background="{DynamicResource BrandLogoBackground}" CornerRadius="16" HorizontalAlignment="Left" Opacity="0.96">
-            <TextBlock Text="✚" Foreground="{DynamicResource BrandLogoText}" FontSize="44" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Path Data="M9,1 H17 V9 H25 V17 H17 V25 H9 V17 H1 V9 H9 Z" Width="38" Height="38" Stretch="Uniform" Fill="{DynamicResource BrandLogoText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <TextBlock Text="Забота о пациентах начинается здесь" TextWrapping="Wrap" FontSize="38" FontWeight="Bold" Foreground="White" LineHeight="46"/>
           <TextBlock Text="Расписание, медицинские карты, приёмы и исследования — в единой системе поликлиники." TextWrapping="Wrap" FontSize="17" Foreground="{DynamicResource BrandMuted}" LineHeight="26"/>
@@ -81,40 +83,59 @@
     </Border>
 
     <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Margin="32" Spacing="20" VerticalAlignment="Center">
-      <Button Classes="themeToggle" Content="{Binding ThemeToggleLabel}" Command="{Binding ToggleThemeCommand}" HorizontalAlignment="Right"/>
+      <StackPanel Margin="24" Spacing="16" VerticalAlignment="Center">
+      <Button Classes="themeToggle" Content="{Binding ThemeToggleLabel}" Command="{Binding ToggleThemeCommand}" IsEnabled="{Binding !IsThemeBusy}" HorizontalAlignment="Right"/>
       <TextBlock Text="{Binding ThemeError}" IsVisible="{Binding HasThemeError}" Foreground="{DynamicResource ErrorText}" FontSize="12" TextWrapping="Wrap"/>
-      <Border Width="390" MaxWidth="390" HorizontalAlignment="Center" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="16" Padding="36">
+      <Border Width="390" MaxWidth="390" HorizontalAlignment="Center" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="16" Padding="28">
         <StackPanel Spacing="0">
-          <Border Width="46" Height="46" Background="{DynamicResource InfoBackground}" CornerRadius="12" HorizontalAlignment="Left" Margin="0,0,0,24">
-            <TextBlock Text="✚" Foreground="{DynamicResource InfoText}" FontSize="27" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
           <TextBlock Text="Вход в систему" FontSize="27" FontWeight="Bold" Foreground="{DynamicResource PrimaryText}"/>
-          <TextBlock Text="Введите данные своей учётной записи" FontSize="13" Foreground="{DynamicResource MutedText}" Margin="0,8,0,30"/>
+          <TextBlock Text="Введите данные своей учётной записи" FontSize="13" Foreground="{DynamicResource MutedText}" Margin="0,8,0,24"/>
           <TextBlock Text="Логин" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryText}" Margin="0,0,0,8"/>
-          <TextBox Classes="loginInput" PlaceholderText="Ваш логин" Text="{Binding Login, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Text="Пароль" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryText}" Margin="0,22,0,8"/>
-          <TextBox Classes="loginInput" PlaceholderText="Введите пароль" PasswordChar="●" Text="{Binding Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-          <TextBlock Text="{Binding StatusMessage}" IsVisible="{Binding HasStatusMessage}" TextWrapping="Wrap" Foreground="{DynamicResource ErrorText}" FontSize="12" Margin="0,16,0,0"/>
-          <Button Classes="signIn" Command="{Binding SignInCommand}" HorizontalAlignment="Stretch" Margin="0,28,0,0">
+          <TextBox x:Name="LoginInput" IsEnabled="{Binding CanInteract}" Classes="loginInput" PlaceholderText="Ваш логин" Text="{Binding Login, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Text="Пароль" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryText}" Margin="0,18,0,8"/>
+          <TextBox IsEnabled="{Binding CanInteract}" Classes="loginInput" PlaceholderText="Введите пароль" PasswordChar="●" RevealPassword="{Binding RevealPassword}" Text="{Binding Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+          <CheckBox Content="Показать пароль" IsChecked="{Binding RevealPassword}" IsEnabled="{Binding CanInteract}" FontSize="12" Foreground="{DynamicResource MutedText}" Margin="0,10,0,0"/>
+          <Border Classes="notice" Classes.error="{Binding !IsStatusSuccess}" Classes.success="{Binding IsStatusSuccess}" IsVisible="{Binding HasStatusMessage}" Padding="12" CornerRadius="8" Margin="0,14,0,0"><TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12"/></Border>
+          <ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="True" Height="3" Margin="0,12,0,0"/>
+          <Button Classes="signIn" IsEnabled="{Binding CanInteract}" Command="{Binding SignInCommand}" HorizontalAlignment="Stretch" Margin="0,20,0,0">
             <Button.Template>
               <ControlTemplate>
                 <Border Background="{TemplateBinding Background}" CornerRadius="8">
-                  <TextBlock Text="Войти" Foreground="White" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <TextBlock Text="{Binding SignInLabel}" Foreground="White" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
               </ControlTemplate>
             </Button.Template>
           </Button>
-          <TextBlock Text="{Binding TestAccountsHint}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" FontSize="11" Margin="0,18,0,0"/>
-          <TextBlock Text="{Binding DemoCredentials}" Foreground="{DynamicResource MutedText}" FontSize="11" Margin="0,4,0,0"/>
-          <Border Height="1" Background="{DynamicResource DividerBrush}" Margin="0,20,0,20"/>
-          <TextBlock Text="Доступ к разделам определяется вашей ролью. Если у вас нет учётной записи, обратитесь к администратору системы." TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" FontSize="12" LineHeight="18"/>
+          <Button Content="Регистрация пациента" IsEnabled="{Binding CanInteract}" Classes="quiet" Command="{Binding OpenRegistrationCommand}" HorizontalAlignment="Stretch" Margin="0,12,0,0"/>
+          <Border Height="1" Background="{DynamicResource DividerBrush}" Margin="0,16,0,16"/>
+          <TextBlock Text="Учётные записи сотрудников создаёт администратор поликлиники." TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" FontSize="12" LineHeight="18"/>
         </StackPanel>
       </Border>
       <TextBlock Text="Персональные и медицинские данные доступны только авторизованным пользователям" MaxWidth="390" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource FaintText}" FontSize="11" HorizontalAlignment="Center"/>
       </StackPanel>
     </ScrollViewer>
   </Grid>
-  <views:DashboardView IsVisible="{Binding IsSignedIn}"/>
+  <Border IsVisible="{Binding IsSignedIn}"><views:DashboardView DataContext="{Binding Workspace}"/></Border>
+  <Border Background="#99000000" IsVisible="{Binding IsRegistrationOpen}">
+    <Border Classes="card" Width="480" MaxHeight="650" Padding="28" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20">
+      <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Spacing="8" Margin="0,0,0,20"><TextBlock Text="Регистрация пациента" FontSize="24" FontWeight="Bold"/><TextBlock Text="{Binding RegistrationHint}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" FontSize="12"/></StackPanel>
+        <ScrollViewer Grid.Row="1" IsEnabled="{Binding CanInteract}"><StackPanel Spacing="12"><ItemsControl ItemsSource="{Binding RegistrationFields}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:EditorField"><StackPanel Spacing="6" Margin="0,0,0,14"><TextBlock Text="{Binding Label}" FontSize="12"/><TextBox IsVisible="{Binding IsText}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" PlaceholderText="{Binding Placeholder}"/><CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/><ComboBox IsVisible="{Binding IsChoice}" PlaceholderText="Выберите…" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Text="{Binding RegistrationError}" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap"/></StackPanel></ScrollViewer>
+        <StackPanel Grid.Row="2" IsEnabled="{Binding CanInteract}" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,20,0,0"><Button Content="Отмена" Classes="quiet" Command="{Binding CloseRegistrationCommand}"/><Button Content="Зарегистрироваться" Classes="primary" Command="{Binding RegisterCommand}"/></StackPanel>
+      </Grid>
+    </Border>
+  </Border>
+  <Border Background="#99000000" IsVisible="{Binding IsRegistrationDiscardOpen}">
+    <Border Classes="card" Width="460" Margin="24" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="18">
+        <TextBlock Text="Отменить регистрацию?" FontSize="23" FontWeight="Bold" TextWrapping="Wrap"/>
+        <TextBlock Text="Введённые данные не будут сохранены." Foreground="{DynamicResource MutedText}"/>
+        <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+          <Button Content="Назад" Classes="quiet" Command="{Binding CancelRegistrationDiscardCommand}"/>
+          <Button Content="Отменить регистрацию" Classes="primary" Command="{Binding ConfirmRegistrationDiscardCommand}"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Border>
   </Grid>
 </UserControl>

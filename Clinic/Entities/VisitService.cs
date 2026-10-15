@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Clinic.Entities;
 
-public partial class RenderedService
+public partial class VisitService
 {
     public int Id { get; set; }
 
@@ -17,7 +17,7 @@ public partial class RenderedService
 
     public decimal Price { get; set; }
 
-    public DateTime RenderDate { get; set; }
+    public DateTime RenderedAt { get; set; }
 
     public virtual Invoice? Invoice { get; set; }
 

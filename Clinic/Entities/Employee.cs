@@ -13,21 +13,27 @@ public partial class Employee
 
     public string? MiddleName { get; set; }
 
-    public string Position { get; set; } = null!;
+    public int PostId { get; set; }
 
     public int? SpecialtyId { get; set; }
-
-    public string? Room { get; set; }
 
     public string? Phone { get; set; }
 
     public bool IsActive { get; set; }
+
+    public virtual Account? Account { get; set; }
+
+    public virtual ICollection<Document> Documents { get; set; } = new List<Document>();
+
+    public virtual ICollection<PatientAttachment> PatientAttachments { get; set; } = new List<PatientAttachment>();
+
+    public virtual Post Post { get; set; } = null!;
+
+    public virtual ICollection<ReferralFile> ReferralFiles { get; set; } = new List<ReferralFile>();
 
     public virtual ICollection<Referral> Referrals { get; set; } = new List<Referral>();
 
     public virtual ICollection<Schedule> Schedules { get; set; } = new List<Schedule>();
 
     public virtual Specialty? Specialty { get; set; }
-
-    public virtual ICollection<UserAccount> UserAccounts { get; set; } = new List<UserAccount>();
 }

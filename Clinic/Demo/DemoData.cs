@@ -5,7 +5,13 @@ namespace Clinic.Demo;
 
 public sealed record DemoAccount(string Login, string Password, string Name, string Role, string Initials);
 public sealed record DashboardMetric(string Value, string Label, string Detail, string Accent);
-public sealed record DashboardItem(string Time, string Title, string Detail, string Badge);
+public sealed record DashboardItem(string Time, string Title, string Detail, string Badge)
+{
+    public bool IsSuccessStatus => Clinic.Workspace.StatusPresentation.Tone(Badge) == "success";
+    public bool IsErrorStatus => Clinic.Workspace.StatusPresentation.Tone(Badge) == "error";
+    public bool IsWarningStatus => Clinic.Workspace.StatusPresentation.Tone(Badge) == "warning";
+    public bool IsNeutralStatus => Clinic.Workspace.StatusPresentation.Tone(Badge) == "neutral";
+}
 
 public static class DemoData
 {
@@ -14,7 +20,6 @@ public static class DemoData
         new("patient", "demo123", "Ольга Лебедева", "Пациент", "ОЛ"),
         new("registrar", "demo123", "Мария Соколова", "Регистратор", "МС"),
         new("doctor", "demo123", "Анна Иванова", "Врач-терапевт", "АИ"),
-        new("laborant", "demo123", "Марина Лебедева", "Лаборант", "МЛ"),
         new("admin", "demo123", "Алексей Волков", "Администратор", "АВ")
     ];
 
@@ -54,15 +59,6 @@ public static class DemoData
             [new("09:00", "Соловьёва Мария Ивановна", "Первичный приём · кабинет 214", "Запланировано"),
              new("09:30", "Кузнецов Алексей Петрович", "Повторный приём · кабинет 214", "Запланировано"),
              new("10:00", "Лебедева Ольга Сергеевна", "Осмотр · кабинет 214", "Ожидает")]),
-        "Лаборант" => (
-            "Очередь исследований и внесение результатов",
-            "Очередь исследований",
-            "Показаны направления и результаты тестовой базы.",
-            ["Направления", "Результаты", "Исследования"],
-            [new("3", "В очереди", "Ожидают исследования", "#FFF2DF"),
-             new("4", "Выполнено", "Готовые результаты", "#E1F6ED"),
-             new("3", "Виды анализов", "В справочнике", "#E4F2FF")],
-            [new("П-000001", "Общий анализ крови", "Пациент · Кириллов Максим", "Выдано")]),
         _ => (
             "Пользователи, справочники и контроль работы системы",
             "Последние события",

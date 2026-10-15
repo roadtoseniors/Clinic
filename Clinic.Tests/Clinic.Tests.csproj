@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+ <ItemGroup><ProjectReference Include="../Clinic/Clinic.csproj"/><ProjectReference Include="../Clinic.API/Clinic.API.csproj"/><ProjectReference Include="../Clinic.Desktop/Clinic.Desktop.csproj"/></ItemGroup>
+</Project>

@@ -30,12 +30,13 @@
           <SolidColorBrush x:Key="SuccessBackground">#E4F4EC</SolidColorBrush>
           <SolidColorBrush x:Key="SuccessText">#227A58</SolidColorBrush>
           <SolidColorBrush x:Key="WarningBackground">#FFF2DF</SolidColorBrush>
-          <SolidColorBrush x:Key="WarningText">#C08016</SolidColorBrush>
+          <SolidColorBrush x:Key="WarningText">#99600A</SolidColorBrush>
           <SolidColorBrush x:Key="DividerBrush">#E9EEF3</SolidColorBrush>
           <SolidColorBrush x:Key="ButtonBackground">#086394</SolidColorBrush>
           <SolidColorBrush x:Key="ButtonHoverBackground">#07537D</SolidColorBrush>
           <SolidColorBrush x:Key="ButtonPressedBackground">#064466</SolidColorBrush>
-          <SolidColorBrush x:Key="ErrorText">#B64C43</SolidColorBrush>
+          <SolidColorBrush x:Key="ErrorText">#B13F36</SolidColorBrush>
+          <SolidColorBrush x:Key="ErrorBackground">#FCEAE8</SolidColorBrush>
           <SolidColorBrush x:Key="AvatarBackground">#28729B</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
@@ -69,6 +70,7 @@
           <SolidColorBrush x:Key="ButtonHoverBackground">#2494C7</SolidColorBrush>
           <SolidColorBrush x:Key="ButtonPressedBackground">#0C6592</SolidColorBrush>
           <SolidColorBrush x:Key="ErrorText">#FFACA5</SolidColorBrush>
+          <SolidColorBrush x:Key="ErrorBackground">#512E33</SolidColorBrush>
           <SolidColorBrush x:Key="AvatarBackground">#276C92</SolidColorBrush>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
@@ -76,6 +78,41 @@
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
+    <Style Selector="TextBlock"><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/></Style>
+    <Style Selector="Border.card"><Setter Property="Background" Value="{DynamicResource CardBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="12"/></Style>
+    <Style Selector="TextBlock.tableHeader"><Setter Property="FontSize" Value="11"/><Setter Property="Foreground" Value="{DynamicResource MutedText}"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+    <Style Selector="TextBlock.tableCell"><Setter Property="FontSize" Value="11"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+    <Style Selector="TextBox"><Setter Property="Background" Value="{DynamicResource InputBackground}"/><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/><Setter Property="BorderBrush" Value="{DynamicResource InputBorder}"/><Setter Property="CornerRadius" Value="8"/><Setter Property="MinHeight" Value="38"/><Setter Property="FontSize" Value="12"/><Setter Property="Padding" Value="12,9"/></Style>
+    <Style Selector="TextBox:pointerover"><Setter Property="Background" Value="{DynamicResource InputBackground}"/><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/><Setter Property="BorderBrush" Value="{DynamicResource InputHoverBorder}"/></Style>
+    <Style Selector="TextBox:focus"><Setter Property="Background" Value="{DynamicResource InputBackground}"/><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/><Setter Property="BorderBrush" Value="{DynamicResource InputFocusBorder}"/></Style>
+    <Style Selector="ComboBox"><Setter Property="Background" Value="{DynamicResource InputBackground}"/><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/><Setter Property="BorderBrush" Value="{DynamicResource InputBorder}"/><Setter Property="MinHeight" Value="38"/><Setter Property="FontSize" Value="12"/><Setter Property="CornerRadius" Value="8"/></Style>
+    <Style Selector="ListBox.navigation ListBoxItem"><Setter Property="Padding" Value="12,11"/><Setter Property="Margin" Value="0,2"/><Setter Property="CornerRadius" Value="8"/><Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/></Style>
+    <Style Selector="ListBox.navigation ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource SelectedBackground}"/><Setter Property="Foreground" Value="{DynamicResource AccentText}"/></Style>
+    <Style Selector="ListBox.navigation ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource InfoBackground}"/></Style>
+    <Style Selector="ListBox.records ListBoxItem"><Setter Property="Padding" Value="16,9"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/></Style>
+    <Style Selector="ListBox.records ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource SelectedBackground}"/></Style>
+    <Style Selector="ListBox.records ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource InfoBackground}"/></Style>
+    <Style Selector="CalendarDatePicker"><Setter Property="Background" Value="{DynamicResource InputBackground}"/><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/><Setter Property="BorderBrush" Value="{DynamicResource InputBorder}"/><Setter Property="MinHeight" Value="38"/><Setter Property="FontSize" Value="12"/></Style>
+    <Style Selector="Border.badge"><Setter Property="Background" Value="{DynamicResource InfoBackground}"/></Style>
+    <Style Selector="Border.badge TextBlock"><Setter Property="Foreground" Value="{DynamicResource InfoText}"/></Style>
+    <Style Selector="Border.badge.success, Border.notice.success"><Setter Property="Background" Value="{DynamicResource SuccessBackground}"/></Style>
+    <Style Selector="Border.badge.success TextBlock, Border.notice.success TextBlock"><Setter Property="Foreground" Value="{DynamicResource SuccessText}"/></Style>
+    <Style Selector="Border.badge.error, Border.notice.error"><Setter Property="Background" Value="{DynamicResource ErrorBackground}"/></Style>
+    <Style Selector="Border.badge.error TextBlock, Border.notice.error TextBlock"><Setter Property="Foreground" Value="{DynamicResource ErrorText}"/></Style>
+    <Style Selector="Border.badge.warning"><Setter Property="Background" Value="{DynamicResource WarningBackground}"/></Style>
+    <Style Selector="Border.badge.warning TextBlock"><Setter Property="Foreground" Value="{DynamicResource WarningText}"/></Style>
+    <Style Selector="Border.badge.neutral"><Setter Property="Background" Value="{DynamicResource PageBackground}"/></Style>
+    <Style Selector="Border.badge.neutral TextBlock"><Setter Property="Foreground" Value="{DynamicResource MutedText}"/></Style>
+    <Style Selector="Button.primary, Button.quiet, Button.themeToggle">
+      <Setter Property="MinHeight" Value="36"/><Setter Property="Padding" Value="14,9"/><Setter Property="FontSize" Value="12"/><Setter Property="CornerRadius" Value="8"/><Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Template"><ControlTemplate><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}"><TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"/></Border></ControlTemplate></Setter>
+    </Style>
+    <Style Selector="Button.primary"><Setter Property="Background" Value="{DynamicResource ButtonBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource ButtonBackground}"/><Setter Property="Foreground" Value="White"/></Style>
+    <Style Selector="Button.primary:pointerover"><Setter Property="Background" Value="{DynamicResource ButtonHoverBackground}"/></Style>
+    <Style Selector="Button.primary:pressed"><Setter Property="Background" Value="{DynamicResource ButtonPressedBackground}"/></Style>
+    <Style Selector="Button.quiet"><Setter Property="Background" Value="{DynamicResource CardBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/><Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/></Style>
+    <Style Selector="Button.quiet:pointerover"><Setter Property="Background" Value="{DynamicResource InfoBackground}"/><Setter Property="Foreground" Value="{DynamicResource InfoText}"/><Setter Property="BorderBrush" Value="{DynamicResource InputHoverBorder}"/></Style>
+    <Style Selector="Button.primary:disabled, Button.quiet:disabled, Button.themeToggle:disabled"><Setter Property="Opacity" Value="0.5"/></Style>
     <Style Selector="Button.themeToggle">
       <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
       <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>

@@ -11,15 +11,19 @@ public partial class Invoice
 
     public DateTime CreatedAt { get; set; }
 
-    public decimal Total { get; set; }
-
     public string Status { get; set; } = null!;
 
-    public string? Method { get; set; }
+    public int? MethodId { get; set; }
+
+    public int? PolicyId { get; set; }
 
     public DateTime? PaidAt { get; set; }
 
+    public virtual PayMethod? Method { get; set; }
+
     public virtual Patient Patient { get; set; } = null!;
 
-    public virtual ICollection<RenderedService> RenderedServices { get; set; } = new List<RenderedService>();
+    public virtual PatientPolicy? Policy { get; set; }
+
+    public virtual ICollection<VisitService> VisitServices { get; set; } = new List<VisitService>();
 }

@@ -9,7 +9,7 @@ public partial class Visit
 
     public int AppointmentId { get; set; }
 
-    public DateTime VisitDatetime { get; set; }
+    public DateTime VisitedAt { get; set; }
 
     public string? Complaints { get; set; }
 
@@ -27,9 +27,11 @@ public partial class Visit
 
     public virtual Diagnosis? DiagnosisCodeNavigation { get; set; }
 
+    public virtual ICollection<Document> Documents { get; set; } = new List<Document>();
+
     public virtual ICollection<Prescription> Prescriptions { get; set; } = new List<Prescription>();
 
     public virtual ICollection<Referral> Referrals { get; set; } = new List<Referral>();
 
-    public virtual ICollection<RenderedService> RenderedServices { get; set; } = new List<RenderedService>();
+    public virtual ICollection<VisitService> VisitServices { get; set; } = new List<VisitService>();
 }

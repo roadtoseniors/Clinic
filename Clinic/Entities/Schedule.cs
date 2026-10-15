@@ -9,15 +9,19 @@ public partial class Schedule
 
     public int EmployeeId { get; set; }
 
+    public int RoomId { get; set; }
+
     public DateOnly WorkDate { get; set; }
 
     public TimeOnly StartTime { get; set; }
 
     public TimeOnly EndTime { get; set; }
 
-    public int SlotDuration { get; set; }
+    public int SlotMinutes { get; set; }
 
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 
     public virtual Employee Employee { get; set; } = null!;
+
+    public virtual Room Room { get; set; } = null!;
 }

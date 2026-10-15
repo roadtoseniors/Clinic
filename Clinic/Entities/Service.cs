@@ -7,15 +7,17 @@ public partial class Service
 {
     public int Id { get; set; }
 
-    public string Name { get; set; } = null!;
+    public int GroupId { get; set; }
 
-    public string Category { get; set; } = null!;
+    public string Name { get; set; } = null!;
 
     public decimal Price { get; set; }
 
     public bool IsActive { get; set; }
 
+    public virtual ServiceGroup Group { get; set; } = null!;
+
     public virtual ICollection<Referral> Referrals { get; set; } = new List<Referral>();
 
-    public virtual ICollection<RenderedService> RenderedServices { get; set; } = new List<RenderedService>();
+    public virtual ICollection<VisitService> VisitServices { get; set; } = new List<VisitService>();
 }

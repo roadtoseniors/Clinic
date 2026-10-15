@@ -1,5 +1,6 @@
 ﻿using System;
 using Avalonia;
+using Clinic.ViewModels;
 
 namespace Clinic.Desktop;
 
@@ -9,8 +10,12 @@ sealed class Program
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
     [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+    public static void Main(string[] args)
+    {
+        using var localApi = LocalApiProcess.ForCheckout(Environment.GetEnvironmentVariable("CLINIC_API_URL"));
+        App.ViewModelFactory = () => new MainViewModel(prepareConnection: localApi is null ? null : localApi.EnsureReadyAsync);
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()

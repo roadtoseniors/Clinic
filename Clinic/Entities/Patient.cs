@@ -17,13 +17,9 @@ public partial class Patient
 
     public DateOnly BirthDate { get; set; }
 
-    public string Gender { get; set; } = null!;
+    public char Gender { get; set; }
 
     public string? Snils { get; set; }
-
-    public string OmsPolicy { get; set; } = null!;
-
-    public string? DmsPolicy { get; set; }
 
     public string? Address { get; set; }
 
@@ -33,11 +29,19 @@ public partial class Patient
 
     public bool IsActive { get; set; }
 
+    public virtual Account? Account { get; set; }
+
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 
-    public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
+    public virtual ICollection<Audit> Audits { get; set; } = new List<Audit>();
+
+    public virtual ICollection<Document> Documents { get; set; } = new List<Document>();
 
     public virtual ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
 
-    public virtual ICollection<UserAccount> UserAccounts { get; set; } = new List<UserAccount>();
+    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+
+    public virtual PatientAttachment? PatientAttachment { get; set; }
+
+    public virtual ICollection<PatientPolicy> PatientPolicies { get; set; } = new List<PatientPolicy>();
 }

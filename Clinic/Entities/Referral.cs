@@ -11,17 +11,17 @@ public partial class Referral
 
     public int ServiceId { get; set; }
 
-    public DateOnly IssueDate { get; set; }
-
     public string Status { get; set; } = null!;
 
     public int? ExecutorId { get; set; }
 
-    public DateTime? ExecDate { get; set; }
+    public DateTime? DoneAt { get; set; }
 
-    public string? ResultText { get; set; }
+    public string? Result { get; set; }
 
     public virtual Employee? Executor { get; set; }
+
+    public virtual ICollection<ReferralFile> ReferralFiles { get; set; } = new List<ReferralFile>();
 
     public virtual Service Service { get; set; } = null!;
 

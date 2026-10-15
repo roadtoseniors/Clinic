@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Clinic.Demo;
 using Npgsql;
+using Clinic.Workspace;
 
 namespace Clinic.Data;
 
@@ -12,11 +13,16 @@ public sealed record ClinicSession(int AccountId, int? EmployeeId, int? PatientI
 public sealed record LiveDashboard(DashboardMetric[] Metrics, DashboardItem[] Items, string SectionTitle, string Note);
 
 // Temporary Desktop-only adapter for the isolated course database. The shared API can replace it later.
-public sealed class ClinicDatabase
+public sealed partial class ClinicDatabase : IClinicGateway
 {
     private readonly string _connectionString;
 
-    private ClinicDatabase(string connectionString) => _connectionString = connectionString;
+    private ClinicDatabase(string connectionString)
+    {
+        if (new NpgsqlConnectionStringBuilder(connectionString).Database != "clinic_course_test")
+            throw new InvalidOperationException("Прямой адаптер работает только с отдельной тестовой базой clinic_course_test.");
+        _connectionString = connectionString;
+    }
 
     public static ClinicDatabase FromLocalConfiguration()
     {
@@ -65,6 +71,11 @@ public sealed class ClinicDatabase
             session = new ClinicSession(reader.GetInt32(0), reader.IsDBNull(3) ? null : reader.GetInt32(3),
                 reader.IsDBNull(4) ? null : reader.GetInt32(4), reader.GetString(2), reader.GetString(1));
         }
+        if (session.Role is not ("Пациент" or "Регистратор" or "Врач" or "Администратор"))
+            throw new InvalidOperationException("Эта роль не входит в проект. Обратитесь к администратору.");
+        await using var loginCommand = new NpgsqlCommand("UPDATE account SET last_login=now() WHERE id=@id", connection);
+        loginCommand.Parameters.AddWithValue("id", session.AccountId);
+        await loginCommand.ExecuteNonQueryAsync();
         return (session, await LoadDashboardAsync(connection, session));
     }
 
@@ -139,22 +150,10 @@ public sealed class ClinicDatabase
                     JOIN room rm ON rm.id=s.room_id WHERE s.employee_id=@id AND s.work_date>=CURRENT_DATE
                     ORDER BY s.work_date, a.start_time LIMIT 5
                     """, id), "Мои пациенты", "Показаны пациенты, записанные к вошедшему врачу.");
-            case "Лаборант":
-                return new LiveDashboard(
-                [Metric(await Count(connection, "SELECT count(*) FROM referral WHERE status='выдано'", id), "В очереди", "Невыполненные направления", "#FFF2DF"),
-                 Metric(await Count(connection, "SELECT count(*) FROM referral WHERE executor_id=@id AND status='выполнено'", id), "Выполнено", "Ваши результаты", "#E1F6ED"),
-                 Metric(await Count(connection, "SELECT count(*) FROM service s JOIN service_group g ON g.id=s.group_id WHERE g.name='Анализы' AND s.is_active", id), "Виды анализов", "Доступные услуги", "#E4F2FF")],
-                await Items(connection, """
-                    SELECT p.card_number, sv.name,
-                           p.last_name || ' ' || p.first_name, r.status
-                    FROM referral r JOIN service sv ON sv.id=r.service_id JOIN visit v ON v.id=r.visit_id
-                    JOIN appointment a ON a.id=v.appointment_id JOIN patient p ON p.id=a.patient_id
-                    WHERE r.status='выдано' ORDER BY r.id LIMIT 5
-                    """, id), "Очередь исследований", "Результаты и направления берутся из тестовой БД.");
             default:
                 return new LiveDashboard(
                 [Metric(await Count(connection, "SELECT count(*) FROM account WHERE is_active", id), "Активные учётные записи", "Все роли", "#E4F2FF"),
-                 Metric(await Count(connection, "SELECT count(*) FROM role", id), "Роли", "В справочнике", "#E1F6ED"),
+                 Metric(await Count(connection, "SELECT count(*) FROM role WHERE name IN ('Пациент','Регистратор','Врач','Администратор')", id), "Роли", "В приложении", "#E1F6ED"),
                  Metric(await Count(connection, "SELECT count(*) FROM audit", id), "События аудита", "В журнале", "#FFF2DF")],
                 await Items(connection, """
                     SELECT to_char(acted_at, 'DD.MM HH24:MI'), action || ' · ' || table_name,

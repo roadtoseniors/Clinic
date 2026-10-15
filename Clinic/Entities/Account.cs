@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Clinic.Entities;
 
-public partial class UserAccount
+public partial class Account
 {
     public int Id { get; set; }
 
@@ -19,9 +19,13 @@ public partial class UserAccount
 
     public bool IsActive { get; set; }
 
+    public string UserTheme { get; set; } = null!;
+
     public DateTime? LastLogin { get; set; }
 
-    public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
+    public virtual ICollection<Audit> Audits { get; set; } = new List<Audit>();
+
+    public virtual ICollection<BackupLog> BackupLogs { get; set; } = new List<BackupLog>();
 
     public virtual Employee? Employee { get; set; }
 

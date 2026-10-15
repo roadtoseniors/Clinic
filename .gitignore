@@ -454,3 +454,7 @@ $RECYCLE.BIN/
 !.vscode/extensions.json
 
 Clinic/db.local.json
+
+# Local API configuration and server backup artifacts
+Clinic.API/api.local.json
+Clinic.API/Backups/
