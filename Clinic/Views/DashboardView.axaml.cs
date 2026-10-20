@@ -90,6 +90,7 @@ public partial class DashboardView : UserControl
 
             byte[] bytes;
             string filename;
+            Clinic.Export.ExportFile? export = null;
             if (kind == "download")
             {
                 if (model.SelectedRow is null)
@@ -120,11 +121,21 @@ public partial class DashboardView : UserControl
             }
             else
             {
-                bytes = Encoding.UTF8.GetBytes(model.ExportHtml(kind == "export_all"));
-                filename = "clinic-" + (model.SelectedSection?.Key ?? "document") + "-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + ".html";
+                model.IsBusy = true;
+                export = model.CreateExport(kind);
+                bytes = export.Content;
+                filename = export.Name;
             }
 
-            var file = await top.StorageProvider.SaveFilePickerAsync(new() { Title = "Сохранить файл", SuggestedFileName = filename });
+            var options = new FilePickerSaveOptions { Title = "Сохранить файл", SuggestedFileName = filename };
+            if (export is not null)
+            {
+                var extension = Path.GetExtension(filename);
+                options.DefaultExtension = extension.TrimStart('.');
+                options.FileTypeChoices = [new FilePickerFileType(extension == ".xlsx" ? "Книга Excel" : extension == ".docx" ? "Документ Word" : "Страница для печати")
+                { Patterns = ["*" + extension], MimeTypes = [export.ContentType] }];
+            }
+            var file = await top.StorageProvider.SaveFilePickerAsync(options);
             if (file is null)
                 return;
             await using var write = await file.OpenWriteAsync();

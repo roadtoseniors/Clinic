@@ -147,6 +147,15 @@ public partial class WorkspaceViewModel
                 Add("delete_account", "Удалить аккаунт без истории");
         }
 
+        if (IsTable)
+        {
+            var index = Actions.ToList().FindIndex(a => a.Key == "export");
+            if (index >= 0)
+                Actions[index] = Actions[index] with { Label = Actions[index].Label + " в Word" };
+            else
+                Add("export", "Выгрузить запись в Word");
+            Add("export_excel", "Выгрузить запись в Excel");
+        }
         if (Gateway is HttpClinicGateway permitted)
             foreach (var action in Actions.Where(a => !AccessPresentation.Action(role, SelectedSection?.EditKind, a.Key, permitted.Permissions)).ToArray())
                 Actions.Remove(action);
@@ -197,9 +206,9 @@ public partial class WorkspaceViewModel
                 Filter();
                 return;
             case "export":
+            case "export_excel":
             case "download":
-                if (FileAction is not null)
-                    await FileAction(key);
+                await FileAsync(key);
                 return;
         }
 

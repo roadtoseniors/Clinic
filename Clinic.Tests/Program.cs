@@ -8,7 +8,8 @@ if(args.Contains("--api")){await ApiIntegration.RunAsync();return;}
 if(args.Contains("--functional")){await FunctionalTests.RunAsync();return;}
 if(args.Contains("--startup")){await LocalApiStartup.RunAsync();return;}
 if(args.Contains("--startup-child")){await LocalApiStartup.RunChildAsync(args);return;}
-int assertions=LoginProtectionTests.Run()+await UiFlowTests.RunAsync()+await PresentationTests.RunAsync();
+if(args.Contains("--export-samples")){Console.WriteLine($"PASS: {await ExportTests.RunAsync(Path.GetFullPath("tmp/checklist-export-2026-10-20"))} checks (Word and ClosedXML exports)");return;}
+int assertions=LoginProtectionTests.Run()+await UiFlowTests.RunAsync()+await PresentationTests.RunAsync()+await ExportTests.RunAsync();
 void Assert(bool condition,string message){if(!condition)throw new Exception(message);assertions++;}
 async Task Denied(Func<Task> work,string label){try{await work();}catch(InvalidOperationException){assertions++;return;}catch(Npgsql.PostgresException ex) when(ex.SqlState=="23505"){assertions++;return;}throw new Exception("Expected rejection: "+label);}
 IClinicGateway gateway=new DemoGateway();

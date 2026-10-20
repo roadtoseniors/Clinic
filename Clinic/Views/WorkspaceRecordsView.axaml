@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Clinic.ViewModels" xmlns:w="using:Clinic.Workspace" xmlns:data="using:Clinic.Data" xmlns:v="using:Clinic.Views" x:Class="Clinic.Views.WorkspaceRecordsView" x:DataType="vm:WorkspaceViewModel">
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Clinic.ViewModels" xmlns:w="using:Clinic.Workspace" xmlns:data="using:Clinic.Data" xmlns:v="using:Clinic.Views" x:Class="Clinic.Views.WorkspaceRecordsView" x:Name="RecordsRoot" x:DataType="vm:WorkspaceViewModel">
   <Grid>
     <Grid RowDefinitions="Auto,*">
       <StackPanel Spacing="12" Margin="0,0,0,16">
@@ -7,9 +7,9 @@
           <Button Grid.Column="1" Content="{Binding DateScopeLabel}" IsVisible="{Binding HasDayScope}" Classes="quiet">
             <Button.Flyout>
               <MenuFlyout>
-                <MenuItem Header="Сегодня" Command="{Binding SetDateRangeCommand}" CommandParameter="today"/>
-                <MenuItem Header="Ближайшая неделя" Command="{Binding SetDateRangeCommand}" CommandParameter="week"/>
-                <MenuItem Header="Все даты" Command="{Binding SetDateRangeCommand}" CommandParameter="all"/>
+                <MenuItem Header="Сегодня" Command="{Binding #RecordsRoot.((vm:WorkspaceViewModel)DataContext).SetDateRangeCommand}" CommandParameter="today"/>
+                <MenuItem Header="Ближайшая неделя" Command="{Binding #RecordsRoot.((vm:WorkspaceViewModel)DataContext).SetDateRangeCommand}" CommandParameter="week"/>
+                <MenuItem Header="Все даты" Command="{Binding #RecordsRoot.((vm:WorkspaceViewModel)DataContext).SetDateRangeCommand}" CommandParameter="all"/>
               </MenuFlyout>
             </Button.Flyout>
           </Button>
@@ -18,7 +18,10 @@
           <Button Grid.Column="4" Content="Действия" Classes="quiet" ToolTip.Tip="Действия со списком">
             <Button.Flyout>
               <MenuFlyout>
-                <MenuItem Header="Сохранить список" Command="{Binding FileCommand}" CommandParameter="export_all"/>
+                <MenuItem Header="Выгрузить в Word" Command="{Binding #RecordsRoot.((vm:WorkspaceViewModel)DataContext).FileCommand}" CommandParameter="export_all_word"/>
+                <MenuItem Header="Выгрузить в Excel" Command="{Binding #RecordsRoot.((vm:WorkspaceViewModel)DataContext).FileCommand}" CommandParameter="export_all_excel"/>
+                <Separator/>
+                <MenuItem Header="Сохранить для печати" Command="{Binding #RecordsRoot.((vm:WorkspaceViewModel)DataContext).FileCommand}" CommandParameter="export_all_html"/>
               </MenuFlyout>
             </Button.Flyout>
           </Button>

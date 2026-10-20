@@ -168,7 +168,12 @@ public partial class WorkspaceViewModel
     [RelayCommand]
     private async Task FileAsync(string kind)
     {
-        if (!IsBusy && FileAction is not null)
-            await FileAction(kind);
+        if (IsBusy) return;
+        if (FileAction is null)
+        {
+            ShowError("Не удалось открыть сохранение файла. Откройте раздел заново.");
+            return;
+        }
+        await FileAction(kind);
     }
 }
