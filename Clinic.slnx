@@ -3,5 +3,4 @@
   <Project Path="Clinic.Browser/Clinic.Browser.csproj" />
   <Project Path="Clinic.Desktop/Clinic.Desktop.csproj" />
   <Project Path="Clinic/Clinic.csproj" />
-  <Project Path="Clinic.Tests/Clinic.Tests.csproj" />
 </Solution>

@@ -15,7 +15,6 @@ AuthOption.SigningKey = builder.Configuration["Auth:SigningKey"] ?? Environment.
 _ = AuthOption.GetSymmetricSecurityKey();
 builder.Services.AddDbContext<MyDbContext>(options => options.UseNpgsql(connection));
 builder.Services.AddCors();
-builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<LoginProtection>();
 // Глобальная обработка ошибок: try/catch в эндпоинтах не нужен
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

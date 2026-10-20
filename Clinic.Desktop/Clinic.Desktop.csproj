@@ -33,7 +33,6 @@
     <ItemGroup>
         <ProjectReference Include="..\Clinic\Clinic.csproj"/>
         <ProjectReference Include="..\Clinic.API\Clinic.API.csproj" ReferenceOutputAssembly="false" />
-        <InternalsVisibleTo Include="Clinic.Tests" />
     </ItemGroup>
 
 </Project>

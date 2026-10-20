@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Clinic.Data;
-using Clinic.Demo;
 
 namespace Clinic.Workspace;
 public sealed record Choice(string Id, string Name)

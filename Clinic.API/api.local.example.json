@@ -1,6 +1,6 @@
 {
   "ConnectionStrings": {
-    "Clinic": "Host=127.0.0.1;Database=clinic_api_integration_test;Username=YOUR_POSTGRES_USER"
+    "Clinic": "Host=127.0.0.1;Database=clinic_local;Username=YOUR_POSTGRES_USER"
   },
   "Auth": { "SigningKey": "" },
   "Backup": { "PgDumpPath": "pg_dump", "PgRestorePath": "pg_restore" }
