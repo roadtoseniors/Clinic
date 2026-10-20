@@ -47,3 +47,5 @@ CLINIC_INITIAL_PASSWORD='пароль' dotnet run --project Clinic.API -- --prep
 | `e.volkova` | Регистратор | Test1234 |
 | `a.ivanova`, `d.sokolov`, `e.morozova` | Врач | Test1234 |
 | `n.belov` | Администратор | Test1234 |
+
+## [Открыть readme с эндпоинтами](ENDPOINTS.md)
