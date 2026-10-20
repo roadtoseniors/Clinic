@@ -3,19 +3,33 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
-using System.Threading.Tasks;
-using Clinic.Data;
 using Clinic.Workspace;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Npgsql;
 
 namespace Clinic.ViewModels;
 
 public partial class EditorField : ObservableObject
 {
     public FieldSpec Spec { get; }
-    public string Label => (IsDate ? Spec.Label.Replace(" (ГГГГ-ММ-ДД)", "") : Spec.Label) + (Spec.Required ? " *" : "");
+    public string Label
+    {
+        get
+        {
+            var label = Spec.Label;
+            if (IsDate)
+            {
+                label = label.Replace(" (ГГГГ-ММ-ДД)", "");
+            }
+
+            if (Spec.Required)
+            {
+                label += " *";
+            }
+
+            return label;
+        }
+    }
+
     public string Hint => Spec.Key switch
     {
         "phone" => "От 10 до 15 цифр; можно использовать +, пробелы, скобки и дефисы",
@@ -32,9 +46,30 @@ public partial class EditorField : ObservableObject
     public bool IsDate => Spec.Key is "birth_date" or "work_date" or "valid_until" or "booking_date";
     public bool IsText => !IsChoice && !IsDate;
     public bool IsReadOnly => Spec.Key == "file_name";
-    public DateTime? Date { get => DateTime.TryParseExact(Text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : null; set => Text = value?.ToString("yyyy-MM-dd") ?? ""; }
+    public DateTime? Date
+    {
+        get
+        {
+            var hasDate = DateTime.TryParseExact(
+                Text,
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var date);
 
-    partial void OnTextChanged(string value) => OnPropertyChanged(nameof(Date));
+            return hasDate ? date : null;
+        }
+        set
+        {
+            Text = value?.ToString("yyyy-MM-dd") ?? "";
+        }
+    }
+
+    partial void OnTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(Date));
+    }
+
     public bool IsMultiline => Spec.Multiline;
     public char PasswordChar => Spec.Secret ? '●' : '\0';
     public string Placeholder => Spec.Key switch
@@ -60,13 +95,21 @@ public partial class EditorField : ObservableObject
         Choices.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ChoicePlaceholder));
         Text = value;
         if (choices is not null)
+        {
             foreach (var choice in choices)
+            {
                 Choices.Add(choice);
+            }
+        }
+
         if (IsChoice)
         {
             if (!spec.Required)
+            {
                 Choices.Insert(0, new Choice("", "Не выбрано"));
-            Selected = Choices.FirstOrDefault(c => c.Id == value);
+            }
+
+            Selected = Choices.FirstOrDefault(choice => choice.Id == value);
         }
     }
 }

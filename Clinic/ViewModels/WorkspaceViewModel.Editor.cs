@@ -1,14 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Clinic.Data;
 using Clinic.Workspace;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Npgsql;
 
 namespace Clinic.ViewModels;
 
@@ -22,7 +18,10 @@ public partial class WorkspaceViewModel
     }
 
     [RelayCommand]
-    private async Task ChangePasswordAsync() => await OpenEditorAsync("password", 0, new());
+    private Task ChangePasswordAsync()
+    {
+        return OpenEditorAsync("password", 0, new());
+    }
     private async Task OpenEditorAsync(string kind, int id, Dictionary<string, string> values)
     {
         if (IsBusy)
@@ -33,7 +32,10 @@ public partial class WorkspaceViewModel
         {
             if (Gateway is HttpClinicGateway http)
                 http.PrepareEditor(kind, id);
-            _choices = kind == "password" ? [] : await Gateway.ChoicesAsync(Session);
+            if (kind == "password")
+                _choices = [];
+            else
+                _choices = await Gateway.ChoicesAsync(Session);
             Fields.Clear();
             _editorKind = kind;
             _editorId = id;
@@ -41,12 +43,20 @@ public partial class WorkspaceViewModel
             _attachedFiles.Clear();
             var specifications = Gateway is HttpClinicGateway api ? api.FieldsFor(kind, id) : Catalog.Fields(kind);
             if (kind == "booking" && Gateway is HttpClinicGateway)
-                specifications = specifications.Where(f => f.Key != "slot").Concat([new FieldSpec("booking_doctor", "Врач", true, "doctors"), new FieldSpec("booking_date", "Дата", true), new FieldSpec("slot", "Время приёма", true, "slots")]).ToArray();
+            {
+                specifications = specifications.Where(field => field.Key != "slot").Concat([
+                    new FieldSpec("booking_doctor", "Врач", true, "doctors"),
+                    new FieldSpec("booking_date", "Дата", true),
+                    new FieldSpec("slot", "Время приёма", true, "slots")
+                ]).ToArray();
+            }
             foreach (var spec in specifications)
             {
                 if (Session.Role == "Пациент" && spec.Key == "patient_id")
                     values[spec.Key] = Session.PatientId?.ToString() ?? "";
-                Fields.Add(new EditorField(spec, values.GetValueOrDefault(spec.Key, spec.Default ?? ""), spec.Lookup is string key ? _choices.GetValueOrDefault(key) : null));
+                var value = values.GetValueOrDefault(spec.Key, spec.Default ?? "");
+                var choices = spec.Lookup is string lookup ? _choices.GetValueOrDefault(lookup) : null;
+                Fields.Add(new EditorField(spec, value, choices));
             }
 
             if (kind == "booking" && Gateway is HttpClinicGateway bookingApi)
@@ -90,6 +100,11 @@ public partial class WorkspaceViewModel
             return;
         if (HasUnsavedChanges && !await ConfirmDiscardAsync())
             return;
+        ClearEditor();
+    }
+
+    private void ClearEditor()
+    {
         IsEditorOpen = false;
         Fields.Clear();
         _attachedFile = null;
@@ -112,10 +127,7 @@ public partial class WorkspaceViewModel
             if (Gateway is HttpClinicGateway && _attachedFiles.Count > 0)
                 values["files_json"] = System.Text.Json.JsonSerializer.Serialize(_attachedFiles);
             await Gateway.SaveAsync(Session, new(_editorKind, _editorId, values));
-            IsEditorOpen = false;
-            Fields.Clear();
-            _attachedFile = null;
-            _attachedFiles.Clear();
+            ClearEditor();
             await RefreshAsync();
             ShowSuccess("Изменения сохранены.");
         }
@@ -168,7 +180,8 @@ public partial class WorkspaceViewModel
     [RelayCommand]
     private async Task FileAsync(string kind)
     {
-        if (IsBusy) return;
+        if (IsBusy)
+            return;
         if (FileAction is null)
         {
             ShowError("Не удалось открыть сохранение файла. Откройте раздел заново.");

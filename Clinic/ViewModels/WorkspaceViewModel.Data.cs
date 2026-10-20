@@ -1,41 +1,57 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Clinic.Data;
 using Clinic.Workspace;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Npgsql;
 
 namespace Clinic.ViewModels;
 
 public partial class WorkspaceViewModel
 {
     [RelayCommand]
-    private async Task RefreshAsync() => await LoadPageAsync();
+    private async Task RefreshAsync()
+    {
+        await LoadPageAsync();
+    }
+
     private async Task LoadPageAsync()
     {
-        var version = ++_loadVersion;
+        var loadVersion = ++_loadVersion;
         var section = SelectedSection;
         if (section is null)
+        {
             return;
+        }
+
         IsBusy = true;
         Message = "";
         _loadFailed = false;
         try
         {
-            if ((FromDate.Length > 0 && ParseDate(FromDate)is null) || (ToDate.Length > 0 && ParseDate(ToDate)is null))
+            var fromDate = ParseDate(FromDate);
+            var toDate = ParseDate(ToDate);
+            if ((FromDate.Length > 0 && fromDate is null) || (ToDate.Length > 0 && toDate is null))
+            {
                 throw new InvalidOperationException("Введите даты фильтра в формате ГГГГ-ММ-ДД.");
-            if (ParseDate(FromDate) > ParseDate(ToDate))
+            }
+
+            if (fromDate > toDate)
+            {
                 throw new InvalidOperationException("Начало периода не может быть позже окончания.");
+            }
+
             if (section.Key == "home")
             {
                 var dashboard = await Gateway.DashboardAsync(Session);
-                if (version != _loadVersion)
+                // За время запроса пользователь мог открыть другую страницу.
+                if (loadVersion != _loadVersion)
+                {
                     return;
+                }
+
                 Replace(Metrics, dashboard.Metrics);
                 Replace(Events, dashboard.Items);
                 EventTitle = dashboard.SectionTitle;
@@ -44,22 +60,26 @@ public partial class WorkspaceViewModel
             }
             else if (section.Key != "backup")
             {
-                var records = await Gateway.ListAsync(Session, section.Key, ParseDate(FromDate), ParseDate(ToDate));
-                if (version != _loadVersion)
+                var records = await Gateway.ListAsync(Session, section.Key, fromDate, toDate);
+                if (loadVersion != _loadVersion)
+                {
                     return;
+                }
+
                 var selectedId = SelectedRow?.Id;
                 var selectedTable = SelectedRow?.Values.GetValueOrDefault("table");
                 _allRows = records;
                 var currentStatus = StatusFilter;
-                Replace(Statuses, new[] { "Все статусы" }.Concat(records.Select(r => r.Status).Distinct()));
+                Replace(Statuses, new[] { "Все статусы" }.Concat(records.Select(row => row.Status).Distinct()));
                 StatusFilter = Statuses.Contains(currentStatus) ? currentStatus : "Все статусы";
                 Filter();
-                SelectedRow = Rows.FirstOrDefault(r => r.Id == selectedId && r.Values.GetValueOrDefault("table") == selectedTable);
+                SelectedRow = Rows.FirstOrDefault(row =>
+                    row.Id == selectedId && row.Values.GetValueOrDefault("table") == selectedTable);
             }
         }
         catch (Exception ex)
         {
-            if (version == _loadVersion)
+            if (loadVersion == _loadVersion)
             {
                 _loadFailed = true;
                 ShowError(Friendly(ex));
@@ -67,47 +87,91 @@ public partial class WorkspaceViewModel
         }
         finally
         {
-            if (version == _loadVersion)
+            if (loadVersion == _loadVersion)
+            {
                 IsBusy = false;
+            }
         }
     }
 
     private void Filter()
     {
         var search = Search.Trim();
-        var from = ParseDate(FromDate);
-        var to = ParseDate(ToDate);
-        var rows = _allRows.Where(r => (search.Length == 0 || string.Join(' ', r.Cell1, r.Cell2, r.Cell3, r.Cell4, r.Details, r.Values.GetValueOrDefault("oms_policy"), r.Values.GetValueOrDefault("card_number")).Contains(search, StringComparison.OrdinalIgnoreCase)) && (StatusFilter == "Все статусы" || r.Status == StatusFilter) && (PatientFilter is null || (r.Values.GetValueOrDefault("patient_id") == PatientFilter.ToString())) && (SelectedSection?.Key == "reports" || (from is null && to is null) || MatchesDate(r, from, to)));
+        var fromDate = ParseDate(FromDate);
+        var toDate = ParseDate(ToDate);
+        IEnumerable<Record> rows = _allRows;
+
+        if (search.Length > 0)
+        {
+            rows = rows.Where(row =>
+            {
+                var searchableText = string.Join(' ', row.Cell1, row.Cell2, row.Cell3, row.Cell4,
+                    row.Details, row.Values.GetValueOrDefault("oms_policy"),
+                    row.Values.GetValueOrDefault("card_number"));
+                return searchableText.Contains(search, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        if (StatusFilter != "Все статусы")
+        {
+            rows = rows.Where(row => row.Status == StatusFilter);
+        }
+
+        if (PatientFilter is not null)
+        {
+            var patientId = PatientFilter.ToString();
+            rows = rows.Where(row => row.Values.GetValueOrDefault("patient_id") == patientId);
+        }
+
+        // Период отчёта уже учтён при запросе данных с сервера.
+        if (SelectedSection?.Key != "reports" && (fromDate is not null || toDate is not null))
+        {
+            rows = rows.Where(row => MatchesDate(row, fromDate, toDate));
+        }
+
+        var russianComparer = StringComparer.Create(CultureInfo.GetCultureInfo("ru-RU"), true);
         rows = SortOrder switch
         {
-            "По названию: А–Я" => rows.OrderBy(r => r.Cell1, StringComparer.Create(CultureInfo.GetCultureInfo("ru-RU"), true)),
-            "По названию: Я–А" => rows.OrderByDescending(r => r.Cell1, StringComparer.Create(CultureInfo.GetCultureInfo("ru-RU"), true)),
-            "Сначала новые" => rows.OrderByDescending(RecordDate).ThenByDescending(r => r.Id),
-            "Сначала старые" => rows.OrderBy(RecordDate).ThenBy(r => r.Id),
+            "По названию: А–Я" => rows.OrderBy(row => row.Cell1, russianComparer),
+            "По названию: Я–А" => rows.OrderByDescending(row => row.Cell1, russianComparer),
+            "Сначала новые" => rows.OrderByDescending(RecordDate).ThenByDescending(row => row.Id),
+            "Сначала старые" => rows.OrderBy(RecordDate).ThenBy(row => row.Id),
             _ => rows
         };
         NotifyFilters();
         Replace(Rows, rows);
         if (IsReports)
-            Replace(ReportCharts, ReportChart.Build(Rows));
-        else
-            ReportCharts.Clear();
-        if (SelectedRow is not null && !Rows.Contains(SelectedRow))
-            SelectedRow = null;
-        foreach (var p in new[]
         {
-            nameof(HasRows),
-            nameof(IsEmpty),
-            nameof(RowCount),
-            nameof(EmptyTitle),
-            nameof(EmptyDescription)
+            Replace(ReportCharts, ReportChart.Build(Rows));
+        }
+        else
+        {
+            ReportCharts.Clear();
         }
 
-        )
-            OnPropertyChanged(p);
+        if (SelectedRow is not null && !Rows.Contains(SelectedRow))
+        {
+            SelectedRow = null;
+        }
+
+        OnPropertyChanged(nameof(HasRows));
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(RowCount));
+        OnPropertyChanged(nameof(EmptyTitle));
+        OnPropertyChanged(nameof(EmptyDescription));
     }
 
-    private static DateTime? ParseDate(string text) => DateTime.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+    private static DateTime? ParseDate(string text)
+    {
+        if (DateTime.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var date))
+        {
+            return date;
+        }
+
+        return null;
+    }
+
     private static DateTime? RecordDate(Record row)
     {
         var value = new[]
@@ -121,15 +185,33 @@ public partial class WorkspaceViewModel
             "acted_at",
             "birth_date",
             "last_login"
-        }.Select(k => row.Values.GetValueOrDefault(k, "")).FirstOrDefault(v => v.Length > 0);
+        }.Select(key => row.Values.GetValueOrDefault(key, "")).FirstOrDefault(text => text.Length > 0);
         if (!DateTime.TryParse(value, CultureInfo.InvariantCulture, out var date))
+        {
             return null;
+        }
+
         if (row.Values.ContainsKey("work_date") && TimeOnly.TryParse(row.Values.GetValueOrDefault("start_time", ""), out var time))
+        {
             return date.Date + time.ToTimeSpan();
+        }
+
         return date;
     }
 
-    private static bool MatchesDate(Record row, DateTime? from, DateTime? to) => RecordDate(row)is { } date && (from is null || date.Date >= from.Value.Date) && (to is null || date.Date <= to.Value.Date);
+    private static bool MatchesDate(Record row, DateTime? from, DateTime? to)
+    {
+        var date = RecordDate(row);
+        if (date is null)
+        {
+            return false;
+        }
+
+        var afterStart = from is null || date.Value.Date >= from.Value.Date;
+        var beforeEnd = to is null || date.Value.Date <= to.Value.Date;
+        return afterStart && beforeEnd;
+    }
+
     [RelayCommand]
     private async Task ApplyFiltersAsync()
     {
@@ -147,6 +229,8 @@ public partial class WorkspaceViewModel
         PatientFilter = null;
         Filter();
         if (SelectedSection?.Key == "reports")
+        {
             _ = RefreshAsync();
+        }
     }
 }

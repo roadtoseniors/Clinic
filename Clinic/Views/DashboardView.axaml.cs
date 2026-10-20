@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Avalonia.Input;
 using Clinic.ViewModels;
+using Clinic.Export;
 
 namespace Clinic.Views;
 public partial class DashboardView : UserControl
@@ -90,7 +91,7 @@ public partial class DashboardView : UserControl
 
             byte[] bytes;
             string filename;
-            Clinic.Export.ExportFile? export = null;
+            ExportFile? export = null;
             if (kind == "download")
             {
                 if (model.SelectedRow is null)
@@ -131,16 +132,24 @@ public partial class DashboardView : UserControl
             if (export is not null)
             {
                 var extension = Path.GetExtension(filename);
+                var typeName = extension switch
+                {
+                    ".xlsx" => "Книга Excel",
+                    ".docx" => "Документ Word",
+                    _ => "Страница для печати"
+                };
                 options.DefaultExtension = extension.TrimStart('.');
-                options.FileTypeChoices = [new FilePickerFileType(extension == ".xlsx" ? "Книга Excel" : extension == ".docx" ? "Документ Word" : "Страница для печати")
+                options.FileTypeChoices = [new FilePickerFileType(typeName)
                 { Patterns = ["*" + extension], MimeTypes = [export.ContentType] }];
             }
             var file = await top.StorageProvider.SaveFilePickerAsync(options);
             if (file is null)
                 return;
-            await using var write = await file.OpenWriteAsync();
-            write.SetLength(0);
-            await write.WriteAsync(bytes);
+            await using (var write = await file.OpenWriteAsync())
+            {
+                write.SetLength(0);
+                await write.WriteAsync(bytes);
+            }
             model.ShowSuccess("Файл сохранён: " + file.Name);
         }
         catch (Exception ex)

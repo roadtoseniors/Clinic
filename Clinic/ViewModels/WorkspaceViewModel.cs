@@ -137,8 +137,16 @@ public partial class WorkspaceViewModel : ViewModelBase
     public string EmptyTitle => _allRows.Count > 0 ? "Ничего не найдено" : "Пока нет записей";
     public string EmptyDescription => _allRows.Count > 0 ? "Измените поисковый запрос или сбросьте фильтры." : CanAdd ? "Добавьте первую запись с помощью кнопки выше." : "Записи появятся здесь по мере работы поликлиники.";
     public bool HasUnsavedChanges => IsEditorOpen && (_attachedFile is not null || Fields.Any(f => _editorValues.GetValueOrDefault(f.Spec.Key) != f.Value));
-    public DateTime? FilterFrom { get => ParseDate(FromDate); set => FromDate = value?.ToString("yyyy-MM-dd") ?? ""; }
-    public DateTime? FilterTo { get => ParseDate(ToDate); set => ToDate = value?.ToString("yyyy-MM-dd") ?? ""; }
+    public DateTime? FilterFrom
+    {
+        get => ParseDate(FromDate);
+        set => FromDate = value?.ToString("yyyy-MM-dd") ?? "";
+    }
+    public DateTime? FilterTo
+    {
+        get => ParseDate(ToDate);
+        set => ToDate = value?.ToString("yyyy-MM-dd") ?? "";
+    }
     public bool HasMessage => Message.Length > 0;
     public string EditorSaveLabel => _editorKind == "booking" ? (_editorId == 0 ? "Записаться" : "Перенести приём") : "Сохранить";
     public bool CanAttach => IsEditorOpen && _editorKind == "result";
@@ -210,10 +218,7 @@ public partial class WorkspaceViewModel : ViewModelBase
     {
         if (!await ConfirmDiscardAsync())
             return;
-        IsEditorOpen = false;
-        Fields.Clear();
-        _attachedFile = null;
-        _attachedFiles.Clear();
+        ClearEditor();
         _navigationApproved = true;
         try
         {
@@ -227,7 +232,7 @@ public partial class WorkspaceViewModel : ViewModelBase
 
     private void NotifyPage()
     {
-        foreach (var p in new[]
+        foreach (var propertyName in new[]
         {
             nameof(Title),
             nameof(IsReports),
@@ -247,13 +252,11 @@ public partial class WorkspaceViewModel : ViewModelBase
             nameof(EmptyDescription),
             nameof(HasRows),
             nameof(IsEmpty),
-            nameof(RowCount),
-            nameof(EmptyTitle),
-            nameof(EmptyDescription)
+            nameof(RowCount)
+        })
+        {
+            OnPropertyChanged(propertyName);
         }
-
-        )
-            OnPropertyChanged(p);
     }
 
     partial void OnSearchChanged(string value) => Filter();

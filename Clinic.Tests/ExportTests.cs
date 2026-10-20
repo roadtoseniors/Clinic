@@ -115,6 +115,11 @@ internal static class ExportTests
         Check(workspace.Actions.Any(a => a.Key == "export") && workspace.Actions.Any(a => a.Key == "export_excel"), "Patient card has both export formats");
         var selected = workspace.ExportData(false);
         Check(selected.Rows.Count == 1 && selected.Details == workspace.SelectedRow.Details, "Selected export includes full record details");
+        workspace.SelectedRow = new Record { Cell1 = "<script>alert(1)</script>", Details = "<img src=x onerror=alert(1)>" };
+        var printHtml = workspace.ExportHtml();
+        Check(printHtml.Contains("&lt;script&gt;") && !printHtml.Contains("<script>"), "Print export keeps record names as text");
+        Check(printHtml.Contains("&lt;img") && !printHtml.Contains("<img"), "Print export keeps notes as text");
+        workspace.SelectedRow = workspace.Rows.Single();
         var excelFile = workspace.CreateExport("export_all_excel");
         var wordFile = workspace.CreateExport("export");
         Check(excelFile.Name.EndsWith(".xlsx") && excelFile.ContentType.Contains("spreadsheetml"), "Excel command has correct name and MIME type");
@@ -126,6 +131,7 @@ internal static class ExportTests
         catch (InvalidOperationException) { checks++; }
         workspace.Search = "Not found";
         Check(workspace.ExportData(true).Rows.Count == 0, "Empty filtered export does not leak unfiltered rows");
+        Check(workspace.ExportHtml(true).Contains("Нет записей по выбранным условиям"), "Empty print export explains the filter result");
         ValidExcel(workspace.CreateExport("export_all_excel").Content);
         ValidWord(workspace.CreateExport("export_all_word").Content);
         workspace.SelectedSection = workspace.Sections.First(s => s.Key == "appointments");

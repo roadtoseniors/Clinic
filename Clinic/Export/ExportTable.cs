@@ -6,7 +6,6 @@ using System.Linq;
 namespace Clinic.Export;
 
 public enum ExportCellKind { Text, Date, DateTime, Money, Metric }
-public enum ExportFormat { Word, Excel, Html }
 public sealed record ExportColumn(string Title, ExportCellKind Kind = ExportCellKind.Text);
 public sealed record ExportTable(string Title, string Context, string Author, DateTime CreatedAt,
     IReadOnlyList<ExportColumn> Columns, IReadOnlyList<string[]> Rows, string Details = "");

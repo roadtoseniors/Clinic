@@ -8,36 +8,54 @@ namespace Clinic.ViewModels;
 
 public partial class WorkspaceViewModel
 {
-    // A person chooses a doctor, then a day, then one of that doctor's free times.
+    // Сначала выбирают врача и дату, затем свободное время приёма.
     private void ConfigureBooking(HttpClinicGateway gateway, Dictionary<string, string> values)
     {
-        var doctor = Fields.First(f => f.Spec.Key == "booking_doctor");
-        var date = Fields.First(f => f.Spec.Key == "booking_date");
-        var time = Fields.First(f => f.Spec.Key == "slot");
-        var originalSlot = gateway.BookingSlots.FirstOrDefault(r => r.Values["slot"] == values.GetValueOrDefault("slot"));
+        var doctorField = Fields.First(field => field.Spec.Key == "booking_doctor");
+        var dateField = Fields.First(field => field.Spec.Key == "booking_date");
+        var timeField = Fields.First(field => field.Spec.Key == "slot");
+        var originalSlot = gateway.BookingSlots.FirstOrDefault(slot =>
+            slot.Values["slot"] == values.GetValueOrDefault("slot"));
         var doctorId = originalSlot?.Values.GetValueOrDefault("employee_id") ?? values.GetValueOrDefault("employee_id");
-        doctor.Selected = doctor.Choices.FirstOrDefault(c => c.Id == doctorId) ?? doctor.Choices.FirstOrDefault();
-        date.Text = originalSlot?.Values.GetValueOrDefault("work_date") ?? DateTime.Today.ToString("yyyy-MM-dd");
+
+        doctorField.Selected = doctorField.Choices.FirstOrDefault(choice => choice.Id == doctorId)
+            ?? doctorField.Choices.FirstOrDefault();
+        dateField.Text = originalSlot?.Values.GetValueOrDefault("work_date") ?? DateTime.Today.ToString("yyyy-MM-dd");
+
         void UpdateTimes()
         {
-            var selected = time.Value;
-            var times = BookingTimes(gateway.BookingSlots, doctor.Value, date.Text);
-            Replace(time.Choices, times);
-            time.Selected = time.Choices.FirstOrDefault(c => c.Id == selected);
+            var selectedTime = timeField.Value;
+            var availableTimes = BookingTimes(gateway.BookingSlots, doctorField.Value, dateField.Text);
+            Replace(timeField.Choices, availableTimes);
+
+            // Если старое время недоступно у выбранного врача, выбор очищается.
+            timeField.Selected = timeField.Choices.FirstOrDefault(choice => choice.Id == selectedTime);
         }
 
-        doctor.PropertyChanged += (_, e) =>
+        doctorField.PropertyChanged += (_, args) =>
         {
-            if (e.PropertyName == nameof(EditorField.Selected))
+            if (args.PropertyName == nameof(EditorField.Selected))
+            {
                 UpdateTimes();
+            }
         };
-        date.PropertyChanged += (_, e) =>
+        dateField.PropertyChanged += (_, args) =>
         {
-            if (e.PropertyName == nameof(EditorField.Text))
+            if (args.PropertyName == nameof(EditorField.Text))
+            {
                 UpdateTimes();
+            }
         };
+
         UpdateTimes();
     }
 
-    public static IEnumerable<Choice> BookingTimes(IEnumerable<Record> slots, string doctor, string date) => slots.Where(r => r.Values.GetValueOrDefault("employee_id") == doctor && r.Values.GetValueOrDefault("work_date") == date).OrderBy(r => r.Values.GetValueOrDefault("start_time")).Select(r => new Choice(r.Values["slot"], r.Values["start_time"]));
+    public static IEnumerable<Choice> BookingTimes(IEnumerable<Record> slots, string doctor, string date)
+    {
+        return slots
+            .Where(slot => slot.Values.GetValueOrDefault("employee_id") == doctor
+                && slot.Values.GetValueOrDefault("work_date") == date)
+            .OrderBy(slot => slot.Values.GetValueOrDefault("start_time"))
+            .Select(slot => new Choice(slot.Values["slot"], slot.Values["start_time"]));
+    }
 }

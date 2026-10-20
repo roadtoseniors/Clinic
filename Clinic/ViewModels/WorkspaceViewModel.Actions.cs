@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Clinic.Data;
 using Clinic.Workspace;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Npgsql;
 
 namespace Clinic.ViewModels;
 
@@ -53,7 +50,7 @@ public partial class WorkspaceViewModel
                     Add("no_show", "Отметить неявку");
             }
 
-            Add("export", "Сохранить талон");
+            Add("export", "Сохранить талон в Word");
         }
 
         if (page == "visits")
@@ -66,7 +63,7 @@ public partial class WorkspaceViewModel
                 Add("close_visit", "Завершить приём");
             }
 
-            Add("export", "Сохранить протокол");
+            Add("export", "Сохранить протокол в Word");
         }
 
         if (page == "referrals")
@@ -81,14 +78,14 @@ public partial class WorkspaceViewModel
 
             if (SelectedRow.Values.GetValueOrDefault("file_name", "").Length > 0)
                 Add("download", "Скачать файл");
-            Add("export", "Сохранить заключение");
+            Add("export", "Сохранить заключение в Word");
         }
 
         if (page == "prescriptions")
         {
             if (role == "Врач" && SelectedRow.Values.GetValueOrDefault("can_edit") != "false")
                 Add("edit", "Редактировать назначение");
-            Add("export", "Сохранить рецепт");
+            Add("export", "Сохранить рецепт в Word");
         }
 
         if (page == "schedule" && role == "Регистратор")
@@ -104,7 +101,7 @@ public partial class WorkspaceViewModel
         {
             if (role == "Регистратор" && SelectedRow.Status == "не оплачен")
                 Add("payment", "Принять оплату");
-            Add("export", "Сохранить счёт");
+            Add("export", "Сохранить счёт в Word");
         }
 
         if (page == "notifications")
@@ -116,7 +113,7 @@ public partial class WorkspaceViewModel
         }
 
         if (page == "documents")
-            Add("export", "Сохранить документ");
+            Add("export", "Сохранить документ в Word");
         if (page is "accounts" or "employees" or "services")
         {
             Add("edit", "Редактировать");
@@ -149,11 +146,10 @@ public partial class WorkspaceViewModel
 
         if (IsTable)
         {
-            var index = Actions.ToList().FindIndex(a => a.Key == "export");
-            if (index >= 0)
-                Actions[index] = Actions[index] with { Label = Actions[index].Label + " в Word" };
-            else
+            if (!Actions.Any(action => action.Key == "export"))
+            {
                 Add("export", "Выгрузить запись в Word");
+            }
             Add("export_excel", "Выгрузить запись в Excel");
         }
         if (Gateway is HttpClinicGateway permitted)
