@@ -41,9 +41,9 @@ CLINIC_INITIAL_PASSWORD='пароль' dotnet run --project Clinic.API -- --prep
 
 ## Тестовые пользователи
 
-| Логин | Роль |
-| --- | --- |
-| `m.smirnova` | Пациент |
-| `e.volkova` | Регистратор |
-| `a.ivanova`, `d.sokolov`, `e.morozova` | Врач |
-| `n.belov` | Администратор |
+| Логин | Роль | Пароль |
+| --- | --- | --- |
+| `m.smirnova` | Пациент | Test1234 |
+| `e.volkova` | Регистратор | Test1234 |
+| `a.ivanova`, `d.sokolov`, `e.morozova` | Врач | Test1234 |
+| `n.belov` | Администратор | Test1234 |
