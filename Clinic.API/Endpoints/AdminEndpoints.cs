@@ -1,4 +1,4 @@
-﻿using System.Net.Mime;
+using System.Net.Mime;
 using Clinic.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -62,7 +62,7 @@ public static class AdminEndpoints
         if (roleCode == RoleCode.Patient)
         {
             if (patientId is not int p || employeeId is not null)
-                return (Err.BadRequest("Для роли пациента укажите только patientId"), null);
+                return (Err.BadRequest("Для роли пациента выберите пациента"), null);
             if (!await db.Patients.AnyAsync(x => x.Id == p && x.IsActive, ct))
                 return (Err.BadRequest("Пациент не найден или неактивен"), null);
             if (await db.Accounts.AnyAsync(a => a.PatientId == p, ct))
@@ -71,9 +71,15 @@ public static class AdminEndpoints
         else
         {
             if (employeeId is not int e || patientId is not null)
-                return (Err.BadRequest("Для роли сотрудника укажите только employeeId"), null);
-            if (!await db.Employees.AnyAsync(x => x.Id == e && x.IsActive, ct))
+                return (Err.BadRequest("Для роли сотрудника выберите сотрудника"), null);
+            var employee = await db.Employees.AsNoTracking()
+                .Where(x => x.Id == e && x.IsActive)
+                .Select(x => new { x.Id, x.SpecialtyId })
+                .FirstOrDefaultAsync(ct);
+            if (employee is null)
                 return (Err.BadRequest("Сотрудник не найден или неактивен"), null);
+            if (roleCode == RoleCode.Doctor && employee.SpecialtyId is null)
+                return (Err.BadRequest("Для роли врача у сотрудника должна быть указана специальность"), null);
             if (await db.Accounts.AnyAsync(a => a.EmployeeId == e, ct))
                 return (Err.Conflict("У сотрудника уже есть аккаунт"), null);
         }
@@ -111,6 +117,9 @@ public static class AdminEndpoints
         if (roleCode is null) return Err.BadRequest("Роль не найдена");
         if ((roleCode == RoleCode.Patient) != (account.PatientId is not null))
             return Err.BadRequest("Аккаунт пациента может иметь только роль пациента, аккаунт сотрудника — только роль сотрудника");
+        if (roleCode == RoleCode.Doctor && account.EmployeeId is int empId
+            && !await db.Employees.AnyAsync(e => e.Id == empId && e.SpecialtyId != null, ct))
+            return Err.BadRequest("Для роли врача у сотрудника должна быть указана специальность");
 
         // Защита от «запирания»: нельзя заблокировать себя или снять с себя роль
         if (id == user.GetAccountId() && (!dto.IsActive || dto.RoleId != account.RoleId))
@@ -128,10 +137,14 @@ public static class AdminEndpoints
     {
         if (Passwords.Validate(dto.NewPassword) is string error) return Err.BadRequest(error);
 
-        var hash = Passwords.Hash(dto.NewPassword);
-        var updated = await db.Accounts.Where(a => a.Id == id)
-            .ExecuteUpdateAsync(s => s.SetProperty(a => a.PasswordHash, hash), ct);
-        return updated == 0 ? Err.NotFound("Аккаунт не найден") : Results.NoContent();
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (account is null) return Err.NotFound("Аккаунт не найден");
+        if (Passwords.Verify(dto.NewPassword, account.PasswordHash))
+            return Err.BadRequest("Новый пароль должен отличаться от текущего");
+
+        account.PasswordHash = Passwords.Hash(dto.NewPassword);
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
     }
 
     // Удалить можно только аккаунт без истории в журнале; иначе его блокируют через PUT

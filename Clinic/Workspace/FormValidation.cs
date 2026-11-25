@@ -13,8 +13,10 @@ public static class FormValidation
         string Value(string key) => fields.FirstOrDefault(f => f.Spec.Key == key)?.Value ?? "";
         foreach (var field in fields)
         {
+            if (!field.IsVisible)
+                continue;
             var value = field.Value;
-            if (field.Spec.Required && string.IsNullOrWhiteSpace(value))
+            if (field.IsRequired && string.IsNullOrWhiteSpace(value))
                 throw new InvalidOperationException($"Заполните поле «{field.Spec.Label}».");
             if (value.Length == 0)
                 continue;
@@ -42,6 +44,11 @@ public static class FormValidation
             {
                 throw new InvalidOperationException("Пароли не совпадают.");
             }
+        }
+        if (fields.Any(field => field.Spec.Key == "old_password") && fields.Any(field => field.Spec.Key == "new_password")
+            && Value("old_password") == Value("new_password"))
+        {
+            throw new InvalidOperationException("Новый пароль должен отличаться от текущего.");
         }
         if (Value("start_time").Length > 0 && Value("end_time").Length > 0 && TimeOnly.Parse(Value("start_time")) >= TimeOnly.Parse(Value("end_time")))
             throw new InvalidOperationException("Окончание работы должно быть позже начала.");

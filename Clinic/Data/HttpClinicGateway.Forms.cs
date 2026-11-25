@@ -165,6 +165,15 @@ public sealed partial class HttpClinicGateway
             result[key] = choices;
         }
 
+        HashSet<int>? usedEmployees = null;
+        HashSet<int>? usedPatients = null;
+        if (session.Role == "Администратор" && _editorKind == "account" && _editorId == 0)
+        {
+            var existingAccounts = await Many("api/accounts");
+            usedEmployees = existingAccounts.Select(a => Integer(a, "employeeId")).Where(id => id > 0).ToHashSet();
+            usedPatients = existingAccounts.Select(a => Integer(a, "patientId")).Where(id => id > 0).ToHashSet();
+        }
+
         if (session.Role == "Администратор" &&
             (Needs("roles") || Needs("employees") || _editorKind == "role_permissions"))
         {
@@ -176,7 +185,7 @@ public sealed partial class HttpClinicGateway
                 .ToList();
             if (_editorKind == "role_permissions")
             {
-                var role = (await Many("api/roles")).First(item => Integer(item, "id") == _editorId);
+                var role = roles.First(item => Integer(item, "id") == _editorId);
                 var enabled = Items(Property(role, "permissions"))
                     .Select(permission => permission.ToString())
                     .ToHashSet();
@@ -192,8 +201,22 @@ public sealed partial class HttpClinicGateway
             }
 
             var employees = await Many("api/employees");
-            result["employees"] = employees
-                .Select(employee => new Choice(Text(employee, "id"), FullName(employee)))
+            var availableEmployees = usedEmployees is null
+                ? employees
+                : employees.Where(employee => !usedEmployees.Contains(Integer(employee, "id"))).ToList();
+            static Choice EmployeeChoice(System.Text.Json.JsonElement employee)
+            {
+                var post = Text(employee, "postName");
+                var specialty = Text(employee, "specialtyName");
+                var details = specialty.Length > 0 ? $"{post}, {specialty}" : post;
+                var label = details.Length > 0 ? $"{FullName(employee)} · {details}" : FullName(employee);
+                return new Choice(Text(employee, "id"), label);
+            }
+
+            result["employees"] = availableEmployees.Select(EmployeeChoice).ToList();
+            result["free_doctors"] = availableEmployees
+                .Where(employee => Integer(employee, "specialtyId") > 0)
+                .Select(EmployeeChoice)
                 .ToList();
         }
 
@@ -201,7 +224,8 @@ public sealed partial class HttpClinicGateway
         {
             var patients = await Patients(session);
             result["patients"] = patients
-                .Where(patient => Boolean(patient, "isActive"))
+                .Where(patient => Boolean(patient, "isActive")
+                    && (usedPatients is null || !usedPatients.Contains(Integer(patient, "id"))))
                 .Select(patient => new Choice(Text(patient, "id"), FullName(patient)))
                 .ToList();
         }

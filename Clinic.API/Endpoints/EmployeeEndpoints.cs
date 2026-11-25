@@ -55,7 +55,11 @@ public static class EmployeeEndpoints
         if (Rules.ValidateContacts(dto.MiddleName,dto.Phone,null,null) is string error) return error;
         if (Clinic.Workspace.InputRules.Error("last_name",dto.LastName) is string lastError) return lastError;
         if (Clinic.Workspace.InputRules.Error("first_name",dto.FirstName) is string firstError) return firstError;
-        if (!await db.Posts.AnyAsync(p => p.Id == dto.PostId, ct)) return "Должность не найдена";
+        var post = await db.Posts.AsNoTracking().FirstOrDefaultAsync(p => p.Id == dto.PostId, ct);
+        if (post is null) return "Должность не найдена";
+        var isDoctor = post.Name.Contains("врач", StringComparison.OrdinalIgnoreCase);
+        if (isDoctor && dto.SpecialtyId is null) return "Для врача обязательно укажите специальность";
+        if (!isDoctor && dto.SpecialtyId is not null) return "Специальность указывается только для врача";
         if (dto.SpecialtyId is int s && !await db.Specialties.AnyAsync(x => x.Id == s, ct)) return "Специальность не найдена";
         return null;
     }

@@ -61,6 +61,10 @@ public partial class WorkspaceViewModel
 
             if (kind == "booking" && Gateway is HttpClinicGateway bookingApi)
                 ConfigureBooking(bookingApi, values);
+            if (kind == "employee")
+                ConfigureEmployee();
+            if (kind == "account" && id == 0)
+                ConfigureAccount();
             _editorValues = Fields.ToDictionary(f => f.Spec.Key, f => f.Value);
             EditorTitle = kind switch
             {
@@ -188,5 +192,100 @@ public partial class WorkspaceViewModel
             return;
         }
         await FileAction(kind);
+    }
+
+    private void ConfigureEmployee()
+    {
+        var postField = Fields.FirstOrDefault(f => f.Spec.Key == "post_id");
+        var specialtyField = Fields.FirstOrDefault(f => f.Spec.Key == "specialty_id");
+        if (postField is null || specialtyField is null)
+            return;
+
+        var specialties = _choices.GetValueOrDefault("specialties") ?? [];
+
+        void UpdateSpecialty()
+        {
+            var isDoctor = postField.Selected?.Name.Contains("врач", StringComparison.OrdinalIgnoreCase) == true;
+            specialtyField.IsVisible = isDoctor;
+            specialtyField.IsRequired = isDoctor;
+            if (isDoctor)
+            {
+                var current = specialtyField.Value;
+                Replace(specialtyField.Choices, specialties);
+                specialtyField.Selected = specialtyField.Choices.FirstOrDefault(c => c.Id == current);
+            }
+            else
+            {
+                specialtyField.Selected = null;
+            }
+        }
+
+        postField.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(EditorField.Selected))
+                UpdateSpecialty();
+        };
+
+        UpdateSpecialty();
+    }
+
+    private void ConfigureAccount()
+    {
+        var roleField = Fields.FirstOrDefault(f => f.Spec.Key == "role_id");
+        var employeeField = Fields.FirstOrDefault(f => f.Spec.Key == "employee_id");
+        var patientField = Fields.FirstOrDefault(f => f.Spec.Key == "patient_id");
+        if (roleField is null || employeeField is null || patientField is null)
+            return;
+
+        var freeEmployees = _choices.GetValueOrDefault("employees") ?? [];
+        var freeDoctors = _choices.GetValueOrDefault("free_doctors") ?? freeEmployees;
+        var freePatients = _choices.GetValueOrDefault("patients") ?? [];
+
+        void UpdateOwner()
+        {
+            var roleName = roleField.Selected?.Name ?? "";
+            var hasRole = roleName.Length > 0;
+            var isPatient = string.Equals(roleName, "Пациент", StringComparison.OrdinalIgnoreCase);
+            var isDoctor = roleName.Contains("врач", StringComparison.OrdinalIgnoreCase);
+
+            patientField.IsVisible = hasRole && isPatient;
+            patientField.IsRequired = hasRole && isPatient;
+            employeeField.IsVisible = hasRole && !isPatient;
+            employeeField.IsRequired = hasRole && !isPatient;
+
+            if (patientField.IsVisible)
+            {
+                var current = patientField.Value;
+                patientField.EmptyChoicePlaceholder = "Нет пациентов без учётной записи";
+                Replace(patientField.Choices, freePatients);
+                patientField.Selected = patientField.Choices.FirstOrDefault(c => c.Id == current);
+            }
+            else
+            {
+                patientField.Selected = null;
+            }
+
+            if (employeeField.IsVisible)
+            {
+                var current = employeeField.Value;
+                employeeField.EmptyChoicePlaceholder = isDoctor
+                    ? "Нет врачей без аккаунта — добавьте врача в разделе «Сотрудники»"
+                    : "Нет сотрудников без аккаунта — добавьте в разделе «Сотрудники»";
+                Replace(employeeField.Choices, isDoctor ? freeDoctors : freeEmployees);
+                employeeField.Selected = employeeField.Choices.FirstOrDefault(c => c.Id == current);
+            }
+            else
+            {
+                employeeField.Selected = null;
+            }
+        }
+
+        roleField.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(EditorField.Selected))
+                UpdateOwner();
+        };
+
+        UpdateOwner();
     }
 }
