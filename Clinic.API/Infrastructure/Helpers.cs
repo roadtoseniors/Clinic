@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 namespace Clinic.API;
 
 // Единый формат ошибок для клиента: { "status": 400, "title": "текст для пользователя" }
@@ -65,13 +63,10 @@ public static partial class Rules
         ?? Clinic.Workspace.InputRules.Error("snils", snils)
         ?? Clinic.Workspace.InputRules.Error("address", address);
 
-    [GeneratedRegex(@"^[A-Za-z0-9._-]{3,50}$")]
-    private static partial Regex LoginRegex();
-
     public static string? ValidateLogin(string? login) =>
-        login is null || !LoginRegex().IsMatch(login.Trim())
+        string.IsNullOrWhiteSpace(login)
             ? "Логин: от 3 до 50 символов, латинские буквы, цифры, точка, дефис или подчёркивание"
-            : null;
+            : Clinic.Workspace.InputRules.Error("login", login);
 
     // Клиент может прислать латинскую M или строчную букву: приводим к значению из CHECK (М/Ж)
     public static char NormalizeGender(char gender) => gender switch

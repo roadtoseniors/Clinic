@@ -88,6 +88,11 @@ public sealed partial class HttpClinicGateway
                     throw new InvalidOperationException("Пароли не совпадают.");
                 }
 
+                if (values.GetValueOrDefault("old_password", "") == values.GetValueOrDefault("new_password", ""))
+                {
+                    throw new InvalidOperationException("Новый пароль должен отличаться от текущего.");
+                }
+
                 await ChangePasswordAsync(values["old_password"], values["new_password"]);
                 return session.AccountId;
             case "patient":

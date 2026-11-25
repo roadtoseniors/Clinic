@@ -45,7 +45,7 @@ public static class ScheduleEndpoints
         if (!SlotRules.All(dto.StartTime, dto.EndTime, dto.SlotMinutes).Any()) return "В интервал не помещается ни одного слота";
         if (dto.WorkDate < Clock.Today) return "Нельзя создавать расписание на прошедшую дату";
 
-        if (!await db.Employees.AnyAsync(e => e.Id == dto.EmployeeId && e.IsActive, ct)) return "Сотрудник не найден или неактивен";
+        if (!await db.Employees.AnyAsync(e => e.Id == dto.EmployeeId && e.IsActive && e.SpecialtyId != null, ct)) return "Врач не найден или неактивен";
         if (!await db.Rooms.AnyAsync(r => r.Id == dto.RoomId, ct)) return "Кабинет не найден";
 
         if (await db.Schedules.AnyAsync(s => s.EmployeeId == dto.EmployeeId && s.WorkDate == dto.WorkDate && s.Id != exceptId, ct))

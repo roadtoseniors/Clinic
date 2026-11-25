@@ -11,6 +11,24 @@ namespace Clinic.ViewModels;
 public partial class EditorField : ObservableObject
 {
     public FieldSpec Spec { get; }
+    [ObservableProperty]
+    private bool _isVisible = true;
+    [ObservableProperty]
+    private bool _isRequired;
+    [ObservableProperty]
+    private string _emptyChoicePlaceholder = "Нет доступных вариантов";
+
+    partial void OnIsRequiredChanged(bool value)
+    {
+        OnPropertyChanged(nameof(Label));
+        OnPropertyChanged(nameof(Hint));
+    }
+
+    partial void OnEmptyChoicePlaceholderChanged(string value)
+    {
+        OnPropertyChanged(nameof(ChoicePlaceholder));
+    }
+
     public string Label
     {
         get
@@ -21,7 +39,7 @@ public partial class EditorField : ObservableObject
                 label = label.Replace(" (ГГГГ-ММ-ДД)", "");
             }
 
-            if (Spec.Required)
+            if (IsRequired)
             {
                 label += " *";
             }
@@ -32,6 +50,8 @@ public partial class EditorField : ObservableObject
 
     public string Hint => Spec.Key switch
     {
+        "last_name" or "first_name" or "middle_name" => "Только буквы, пробелы и дефис",
+        "login" => "От 3 до 50 символов: латинские буквы, цифры, точка, дефис или подчёркивание",
         "phone" => "От 10 до 15 цифр; можно использовать +, пробелы, скобки и дефисы",
         "snils" => "11 цифр, например 123-456-789 00",
         "oms_policy" => "Номер полиса ОМС из 16 цифр",
@@ -39,9 +59,10 @@ public partial class EditorField : ObservableObject
         "file_name" => "Можно прикрепить PDF, JPG или PNG до 10 МБ",
         "start_time" or "end_time" => "Время в формате ЧЧ:ММ",
         "price" or "amount" => "Сумма в рублях; копейки отделяются запятой или точкой",
-        _ => Spec.Required ? "Обязательное поле: " + Spec.Label : Spec.Label
+        _ => IsRequired ? "Обязательное поле: " + Spec.Label : Spec.Label
     };
-    public string ChoicePlaceholder => Choices.Count == 0 ? "Нет доступных вариантов" : "Выберите…";
+    public string ChoicePlaceholder => Choices.Count == 0 ? EmptyChoicePlaceholder : "Выберите…";
+    public int MaxLength => InputRules.MaxLength(Spec.Key);
     public bool IsChoice => Spec.Lookup is not null;
     public bool IsDate => Spec.Key is "birth_date" or "work_date" or "valid_until" or "booking_date";
     public bool IsText => !IsChoice && !IsDate;
@@ -92,6 +113,7 @@ public partial class EditorField : ObservableObject
     public EditorField(FieldSpec spec, string value, IEnumerable<Choice>? choices = null)
     {
         Spec = spec;
+        _isRequired = spec.Required;
         Choices.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ChoicePlaceholder));
         Text = value;
         if (choices is not null)

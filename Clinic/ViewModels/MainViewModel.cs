@@ -526,7 +526,7 @@ public partial class MainViewModel : ViewModelBase
             FormValidation.Validate(RegistrationFields);
             var values = RegistrationFields.ToDictionary(field => field.Spec.Key, field => field.Value);
             await gateway.RegisterAsync(values);
-            Login = values["login"];
+            Login = values["login"].Trim();
             IsRegistrationOpen = false;
             RegistrationFields.Clear();
             ShowStatus("Учётная запись создана. Введите пароль для входа.", success: true);

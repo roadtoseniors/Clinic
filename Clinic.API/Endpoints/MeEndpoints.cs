@@ -64,6 +64,8 @@ public static class MeEndpoints
         if (account is null) return Err.NotFound("Аккаунт не найден");
         if (!Passwords.Verify(dto.OldPassword ?? "", account.PasswordHash))
             return Err.BadRequest("Текущий пароль указан неверно");
+        if (Passwords.Verify(dto.NewPassword, account.PasswordHash))
+            return Err.BadRequest("Новый пароль должен отличаться от текущего");
 
         account.PasswordHash = Passwords.Hash(dto.NewPassword);
         await db.SaveChangesAsync(ct);

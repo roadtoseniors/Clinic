@@ -128,7 +128,23 @@
     <Border Classes="card" Width="480" MaxHeight="650" Padding="28" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20">
       <Grid RowDefinitions="Auto,*,Auto">
         <StackPanel Spacing="8" Margin="0,0,0,20"><TextBlock Text="Регистрация пациента" FontSize="24" FontWeight="Bold"/><TextBlock Text="{Binding RegistrationHint}" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" FontSize="12"/></StackPanel>
-        <ScrollViewer Grid.Row="1" IsEnabled="{Binding CanInteract}"><StackPanel Spacing="12"><ItemsControl ItemsSource="{Binding RegistrationFields}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:EditorField"><StackPanel Spacing="6" Margin="0,0,0,14"><TextBlock ToolTip.Tip="{Binding Hint}" Text="{Binding Label}" FontSize="12"/><TextBox IsVisible="{Binding IsText}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" PlaceholderText="{Binding Placeholder}" ToolTip.Tip="{Binding Hint}"/><CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/><ComboBox IsVisible="{Binding IsChoice}" PlaceholderText="Выберите…" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Text="{Binding RegistrationError}" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap"/></StackPanel></ScrollViewer>
+        <ScrollViewer Grid.Row="1" IsEnabled="{Binding CanInteract}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="12">
+            <ItemsControl ItemsSource="{Binding RegistrationFields}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EditorField">
+                  <StackPanel Spacing="6" Margin="0,0,12,14" IsVisible="{Binding IsVisible}">
+                    <TextBlock ToolTip.Tip="{Binding Hint}" Text="{Binding Label}" FontSize="12"/>
+                    <TextBox IsVisible="{Binding IsText}" MaxLength="{Binding MaxLength}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" PlaceholderText="{Binding Placeholder}" ToolTip.Tip="{Binding Hint}"/>
+                    <CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/>
+                    <ComboBox IsVisible="{Binding IsChoice}" PlaceholderText="{Binding ChoicePlaceholder}" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{Binding RegistrationError}" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap" Margin="0,0,12,0"/>
+          </StackPanel>
+        </ScrollViewer>
         <StackPanel Grid.Row="2" IsEnabled="{Binding CanInteract}" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,20,0,0"><Button Content="Отмена" Classes="quiet" Command="{Binding CloseRegistrationCommand}"/><Button Content="Зарегистрироваться" Classes="primary" Command="{Binding RegisterCommand}"/></StackPanel>
       </Grid>
     </Border>

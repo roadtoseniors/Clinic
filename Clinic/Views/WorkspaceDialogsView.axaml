@@ -7,15 +7,15 @@
             <TextBlock Text="{Binding EditorTitle}" FontSize="23" FontWeight="Bold"/>
             <TextBlock Text="* Обязательные поля" FontSize="11" Foreground="{DynamicResource MutedText}"/>
           </StackPanel>
-          <ScrollViewer Grid.Row="1" IsEnabled="{Binding !IsBusy}" VerticalScrollBarVisibility="Auto">
+          <ScrollViewer Grid.Row="1" IsEnabled="{Binding !IsBusy}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="14">
               <ItemsControl ItemsSource="{Binding Fields}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:EditorField">
-                    <StackPanel Spacing="7" Margin="0,0,12,16">
+                    <StackPanel Spacing="7" Margin="0,0,12,16" IsVisible="{Binding IsVisible}">
                       <TextBlock ToolTip.Tip="{Binding Hint}" Text="{Binding Label}" FontWeight="SemiBold" FontSize="12"/>
                       <CalendarDatePicker IsVisible="{Binding IsDate}" SelectedDate="{Binding Date}" SelectedDateFormat="Custom" CustomDateFormatString="dd.MM.yyyy" PlaceholderText="Выберите дату" FirstDayOfWeek="Monday" HorizontalAlignment="Stretch"/>
-                      <TextBox IsVisible="{Binding IsText}" IsReadOnly="{Binding IsReadOnly}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" AcceptsReturn="{Binding IsMultiline}" TextWrapping="Wrap" MinHeight="40" MaxHeight="180" PlaceholderText="{Binding Placeholder}" ToolTip.Tip="{Binding Hint}"/>
+                      <TextBox IsVisible="{Binding IsText}" IsReadOnly="{Binding IsReadOnly}" MaxLength="{Binding MaxLength}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" PasswordChar="{Binding PasswordChar}" AcceptsReturn="{Binding IsMultiline}" TextWrapping="Wrap" MinHeight="40" MaxHeight="180" PlaceholderText="{Binding Placeholder}" ToolTip.Tip="{Binding Hint}"/>
                       <ComboBox PlaceholderText="{Binding ChoicePlaceholder}" IsVisible="{Binding IsChoice}" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"/>
                     </StackPanel>
                   </DataTemplate>
